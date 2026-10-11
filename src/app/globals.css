@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-violeta: #6d3bff;
+  --color-violeta-escuro: #4a22c9;
+  --color-tinta: #12091f;
+  --color-limao: #c6f432;
+  --color-nevoa: #f5f3ff;
+  --font-sans: var(--font-sora);
+}
+
+body {
+  background: var(--color-nevoa);
+  color: var(--color-tinta);
+  font-family: var(--font-sora), system-ui, sans-serif;
+}
