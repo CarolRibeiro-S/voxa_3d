@@ -121,3 +121,66 @@ export interface CatalogPrinterRpc {
   price_ref_date: string | null;
   notes: string | null;
 }
+
+export interface TenantProfile {
+  tenant_id: string;
+  business_name: string | null;
+  whatsapp: string | null;
+  instagram: string | null;
+  updated_at: string;
+}
+
+export type QuoteStatus = "draft" | "sent" | "approved" | "declined";
+
+// number é preenchido por gatilho e total_brl é mantido por gatilho: nunca gravar.
+export interface Quote {
+  id: string;
+  tenant_id: string;
+  number: number;
+  customer_name: string;
+  customer_contact: string | null;
+  status: QuoteStatus;
+  valid_until: string | null;
+  notes: string | null;
+  total_brl: number;
+  approved_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type QuoteInsert = Pick<Quote, "tenant_id" | "customer_name"> &
+  Partial<
+    Omit<
+      Quote,
+      "id" | "tenant_id" | "customer_name" | "number" | "total_brl" | "created_at" | "updated_at"
+    >
+  >;
+
+export type QuoteUpdate = Partial<
+  Omit<Quote, "id" | "tenant_id" | "number" | "total_brl" | "created_at">
+>;
+
+export type QuoteItemKind = "fdm" | "resin" | "custom";
+
+// calc_input e calc_result existem no banco, mas nunca são lidos pelo app em telas nem no PDF.
+export interface QuoteItem {
+  id: string;
+  tenant_id: string;
+  quote_id: string;
+  position: number;
+  kind: QuoteItemKind;
+  description: string;
+  quantity: number;
+  suggested_unit_price_brl: number | null;
+  unit_price_brl: number;
+  created_at: string;
+}
+
+export type QuoteItemInsert = Pick<
+  QuoteItem,
+  "tenant_id" | "quote_id" | "position" | "kind" | "description" | "quantity" | "unit_price_brl"
+> & {
+  suggested_unit_price_brl?: number | null;
+  calc_input?: unknown;
+  calc_result?: unknown;
+};

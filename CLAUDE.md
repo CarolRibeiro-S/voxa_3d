@@ -84,3 +84,4 @@ Mobile first, `rounded-xl`, sombras suaves.
 - Toda função RPC nova chama public.rpc_rate_limit.
 - Exportações (CSV e PDF) só de dados do próprio tenant.
 - Orçamento mostrado ao cliente final exibe só o preço final, sem detalhamento.
+- Todo cálculo de orçamento chama public.calc_check_limit antes de calcular (limite de 300 por hora por usuário e tipo).

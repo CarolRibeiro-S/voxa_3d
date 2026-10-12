@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
-import type { CostSettings, MemberRole, Tenant } from "@/types/database";
+import type { CostSettings, MemberRole, Tenant, TenantProfile } from "@/types/database";
 
 // Sempre com o cliente do usuário (RLS). Nunca usar a service role key aqui.
 
@@ -60,4 +60,14 @@ export async function getCostSettings(
     packaging_default_brl: Number(data.packaging_default_brl),
     updated_at: data.updated_at,
   };
+}
+
+export async function getTenantProfile(tenantId: string): Promise<TenantProfile | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("tenant_profile")
+    .select("tenant_id, business_name, whatsapp, instagram, updated_at")
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  return (data as TenantProfile | null) ?? null;
 }

@@ -3,6 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { costSettingsSchema, type CostSettingsValues } from "@/lib/cost-settings";
+import {
+  tenantProfileSchema,
+  type TenantProfileInput,
+} from "@/lib/tenant-profile-schema";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant, getCurrentUser } from "@/lib/tenant";
 
@@ -41,6 +45,51 @@ export async function saveCostSettings(
     .select("tenant_id");
 
   if (error || !data || data.length === 0) {
+    return { ok: false, message: GENERIC_ERROR };
+  }
+
+  revalidatePath("/configuracoes");
+  return { ok: true, savedAt: Date.now() };
+}
+
+// ---- Dados do orçamento (topo do PDF) ----
+
+export type SaveTenantProfileState =
+  | { ok: true; savedAt: number }
+  | { ok: false; message: string };
+
+export async function saveTenantProfile(
+  values: TenantProfileInput,
+): Promise<SaveTenantProfileState> {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, message: "Sua sessão expirou. Entre novamente." };
+
+  // O tenant vem da sessão, nunca do formulário.
+  const current = await getCurrentTenant();
+  if (!current) return { ok: false, message: "Não encontramos a sua conta." };
+
+  const parsed = tenantProfileSchema.safeParse(values);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      message: parsed.error.issues[0]?.message ?? "Confira os valores informados.",
+    };
+  }
+  const v = parsed.data;
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("tenant_profile").upsert(
+    {
+      tenant_id: current.tenant.id,
+      business_name: v.business_name === "" ? null : v.business_name,
+      whatsapp: v.whatsapp === "" ? null : v.whatsapp,
+      instagram: v.instagram === "" ? null : v.instagram,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "tenant_id" },
+  );
+  if (error) {
+    console.error("Erro ao salvar tenant_profile:", error.code, error.message);
     return { ok: false, message: GENERIC_ERROR };
   }
 

@@ -2,9 +2,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { daysUntil, formatDate } from "@/lib/format";
 import { PLANS } from "@/lib/plans";
-import { getCostSettings, getCurrentTenant } from "@/lib/tenant";
+import { getCostSettings, getCurrentTenant, getTenantProfile } from "@/lib/tenant";
 import type { SubscriptionStatus } from "@/types/database";
 import { CostSettingsForm } from "./cost-settings-form";
+import { TenantProfileForm } from "./tenant-profile-form";
 
 export const metadata = { title: "Configurações | Voxa3D" };
 
@@ -31,7 +32,10 @@ export default async function ConfiguracoesPage() {
   if (!current) return null; // O layout já mostra o erro de conta.
 
   const { tenant } = current;
-  const settings = await getCostSettings(tenant.id);
+  const [settings, profile] = await Promise.all([
+    getCostSettings(tenant.id),
+    getTenantProfile(tenant.id),
+  ]);
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -75,6 +79,14 @@ export default async function ConfiguracoesPage() {
           </p>
         </Card>
       )}
+
+      <TenantProfileForm
+        initial={{
+          business_name: profile?.business_name ?? tenant.name,
+          whatsapp: profile?.whatsapp ?? "",
+          instagram: profile?.instagram ?? "",
+        }}
+      />
     </div>
   );
 }

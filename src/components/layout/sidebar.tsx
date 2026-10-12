@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Boxes,
+  Calculator,
+  Droplet,
   FileText,
   KanbanSquare,
   LayoutDashboard,
@@ -28,6 +30,13 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/painel", label: "Painel", icon: LayoutDashboard },
   { href: "/orcamentos", label: "Orçamentos", icon: FileText, feature: "quotes" },
   { href: "/pedidos", label: "Pedidos", icon: KanbanSquare, feature: "orders_kanban" },
+  { href: "/calculadora-fdm", label: "Calculadora FDM", icon: Calculator, feature: "calculator" },
+  {
+    href: "/calculadora-resina",
+    label: "Calculadora de Resina",
+    icon: Droplet,
+    feature: "calculator",
+  },
   { href: "/maquinas", label: "Máquinas", icon: Printer, feature: "calculator" },
   { href: "/materiais", label: "Materiais", icon: Boxes, feature: "calculator" },
   { href: "/configuracoes", label: "Configurações", icon: Settings },
