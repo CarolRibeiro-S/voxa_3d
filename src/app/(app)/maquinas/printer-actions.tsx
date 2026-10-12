@@ -29,7 +29,7 @@ export function PrinterActions({ printer }: { printer: TenantPrinter }) {
     },
     delete: {
       title: "Excluir máquina?",
-      description: `A máquina ${name} será excluída. Orçamentos e cálculos já salvos não mudam.`,
+      description: `A máquina ${name} irá para a Lixeira e pode ser restaurada em Histórico. Orçamentos e cálculos já salvos não mudam.`,
       confirmLabel: "Excluir máquina",
     },
   } as const;

@@ -222,6 +222,7 @@ export async function savePrinter(
       .update(patch)
       .eq("id", id)
       .eq("tenant_id", current.tenant.id)
+      .is("deleted_at", null)
       .select("id");
     if (error || !data || data.length === 0) {
       return { ok: false, message: GENERIC_ERROR };
@@ -243,6 +244,7 @@ export async function togglePrinterActive(id: string): Promise<ActionResult> {
     .select("is_active")
     .eq("id", id)
     .eq("tenant_id", current.tenant.id)
+    .is("deleted_at", null)
     .maybeSingle();
   if (readError || !row) {
     return { ok: false, message: "Não foi possível alterar a máquina. Tente novamente." };
@@ -257,6 +259,7 @@ export async function togglePrinterActive(id: string): Promise<ActionResult> {
     .update(patch)
     .eq("id", id)
     .eq("tenant_id", current.tenant.id)
+    .is("deleted_at", null)
     .select("id");
   if (error || !data || data.length === 0) {
     return { ok: false, message: "Não foi possível alterar a máquina. Tente novamente." };
@@ -271,14 +274,18 @@ export async function deletePrinter(id: string): Promise<ActionResult> {
   if (!current) return { ok: false, message: SESSION_ERROR };
   if (!UUID.test(id)) return { ok: false, message: GENERIC_ERROR };
 
+  // Exclusão é soft delete: a máquina vai para a Lixeira e pode ser restaurada em Histórico.
   const supabase = await createClient();
+  const now = new Date().toISOString();
   const { data, error } = await supabase
     .from("tenant_printers")
-    .delete()
+    .update({ deleted_at: now, updated_at: now })
     .eq("id", id)
     .eq("tenant_id", current.tenant.id)
+    .is("deleted_at", null)
     .select("id");
   if (error || !data || data.length === 0) {
+    if (error) console.error("Erro ao excluir máquina:", error.code, error.message);
     return { ok: false, message: "Não foi possível excluir. Tente novamente." };
   }
 

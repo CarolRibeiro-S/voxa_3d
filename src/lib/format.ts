@@ -115,3 +115,12 @@ export function formatContact(value: string): string {
   if (/^\d+$/.test(stripped) && isValidBrPhone(stripped)) return formatPhone(stripped);
   return value;
 }
+
+// "11/10/2026 14:30", sempre no fuso de São Paulo.
+export function formatDateTime(value: Date | string | number): string {
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "America/Sao_Paulo",
+  }).format(new Date(value));
+}

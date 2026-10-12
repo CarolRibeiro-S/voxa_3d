@@ -60,7 +60,7 @@ export function QuoteDangerActions({
         open={confirming}
         onOpenChange={setConfirming}
         title={`Excluir orçamento nº ${formatQuoteNumber(number)}?`}
-        description={`O orçamento de ${customerName} e os itens dele serão excluídos.`}
+        description={`O orçamento de ${customerName} e os itens dele irão para a Lixeira e podem ser restaurados em Histórico.`}
         confirmLabel="Excluir orçamento"
         variant="danger"
         onConfirm={async () => {

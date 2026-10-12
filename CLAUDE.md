@@ -75,6 +75,7 @@ Mobile first, `rounded-xl`, sombras suaves.
 ## Padrões de interface
 
 - Toda ação que altera dado existente (editar e salvar, excluir, remover, arquivar, mudar status) abre ConfirmDialog; edição mostra o resumo do que muda (ChangesSummary). Criação e cálculo não. Nunca usar botão de confirmação inline.
+- Excluir é sempre soft delete (deleted_at) e todo novo recurso com exclusão deve filtrar deleted_at is null e entrar no Histórico. Nunca devolver calc_input nem calc_result ao navegador, nem no Histórico.
 
 ## Proteção da lógica e dos dados do produto
 

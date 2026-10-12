@@ -82,6 +82,7 @@ async function currentStatus(
     .select("status")
     .eq("id", quoteId)
     .eq("tenant_id", tenantId)
+    .is("deleted_at", null)
     .maybeSingle();
   return data ? (data.status as QuoteStatus) : null;
 }
@@ -97,6 +98,7 @@ async function itemQuoteStatus(
     .select("quote_id")
     .eq("id", itemId)
     .eq("tenant_id", tenantId)
+    .is("deleted_at", null)
     .maybeSingle();
   return data ? currentStatus(supabase, tenantId, String(data.quote_id)) : null;
 }
@@ -162,6 +164,7 @@ export async function updateQuoteCustomer(
     .update(patch)
     .eq("id", id)
     .eq("tenant_id", g.tenantId)
+    .is("deleted_at", null)
     .select("id");
   if (error || !data || data.length === 0) return fail("cliente", error ?? {});
 
@@ -197,6 +200,7 @@ export async function setQuoteStatus(id: string, status: QuoteStatus): Promise<A
     .eq("tenant_id", g.tenantId)
     // Garante que o status não mudou entre a leitura e a gravação.
     .eq("status", from)
+    .is("deleted_at", null)
     .select("id");
   if (error || !data || data.length === 0) {
     return fail("status", error ?? {}, "Não foi possível alterar o status.");
@@ -211,19 +215,15 @@ export async function deleteQuote(id: string): Promise<ActionResult> {
   if (!g.ok) return g;
   if (!uuidSchema.safeParse(id).success) return { ok: false, message: GENERIC_ERROR };
 
+  // Soft delete: só o orçamento vai para a Lixeira. Os itens ficam e voltam junto.
   const supabase = await createClient();
-  const { error: itemsError } = await supabase
-    .from("quote_items")
-    .delete()
-    .eq("quote_id", id)
-    .eq("tenant_id", g.tenantId);
-  if (itemsError) return fail("excluir itens", itemsError, "Não foi possível excluir. Tente novamente.");
-
+  const now = new Date().toISOString();
   const { data, error } = await supabase
     .from("quotes")
-    .delete()
+    .update({ deleted_at: now, updated_at: now })
     .eq("id", id)
     .eq("tenant_id", g.tenantId)
+    .is("deleted_at", null)
     .select("id");
   if (error || !data || data.length === 0) {
     return fail("excluir", error ?? {}, "Não foi possível excluir. Tente novamente.");
@@ -235,7 +235,8 @@ export async function deleteQuote(id: string): Promise<ActionResult> {
 
 // ---- Itens ----
 
-// Posição seguinte ao último item do orçamento.
+// Posição seguinte ao último item do orçamento. Conta também os itens na Lixeira (sem filtrar
+// deleted_at) de propósito: assim, um item restaurado nunca repete a posição de um novo.
 async function nextPosition(
   supabase: Awaited<ReturnType<typeof createClient>>,
   tenantId: string,
@@ -262,6 +263,7 @@ async function isDraftQuote(
     .select("status")
     .eq("id", quoteId)
     .eq("tenant_id", tenantId)
+    .is("deleted_at", null)
     .maybeSingle();
   return data?.status === "draft";
 }
@@ -324,6 +326,7 @@ export async function updateQuoteItem(
     })
     .eq("id", itemId)
     .eq("tenant_id", g.tenantId)
+    .is("deleted_at", null)
     .select("quote_id");
   if (error || !data || data.length === 0) return fail("editar item", error ?? {});
 
@@ -341,11 +344,13 @@ export async function removeQuoteItem(itemId: string): Promise<ActionResult> {
   if (status === null) return { ok: false, message: GENERIC_ERROR };
   if (isQuoteLocked(status)) return { ok: false, message: LOCKED_ERROR };
 
+  // Soft delete: o item vai para a Lixeira e pode ser restaurado em Histórico.
   const { data, error } = await supabase
     .from("quote_items")
-    .delete()
+    .update({ deleted_at: new Date().toISOString() })
     .eq("id", itemId)
     .eq("tenant_id", g.tenantId)
+    .is("deleted_at", null)
     .select("quote_id");
   if (error || !data || data.length === 0) {
     return fail("remover item", error ?? {}, "Não foi possível remover. Tente novamente.");
@@ -376,6 +381,7 @@ export async function listDraftQuotes(): Promise<
     .select("id, number, customer_name")
     .eq("tenant_id", g.tenantId)
     .eq("status", "draft")
+    .is("deleted_at", null)
     .order("number", { ascending: false })
     .limit(100);
   if (error) return fail("listar rascunhos", error, "Não foi possível carregar os orçamentos.");
@@ -447,6 +453,7 @@ export async function addQuoteItemFromCalculation(
       .select("number")
       .eq("id", quoteId)
       .eq("tenant_id", g.tenantId)
+      .is("deleted_at", null)
       .maybeSingle();
     if (!data) return { ok: false, message: GENERIC_ERROR };
     number = Number(data.number);
@@ -479,7 +486,12 @@ export async function addQuoteItemFromCalculation(
   const { error: itemError } = await supabase.from("quote_items").insert(item);
   if (itemError) {
     if (createdHere) {
-      await supabase.from("quotes").delete().eq("id", quoteId).eq("tenant_id", g.tenantId);
+      // Limpeza do orçamento criado agora: vai para a Lixeira, como toda exclusão.
+      await supabase
+        .from("quotes")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", quoteId)
+        .eq("tenant_id", g.tenantId);
     }
     return fail("item da calculadora", itemError);
   }

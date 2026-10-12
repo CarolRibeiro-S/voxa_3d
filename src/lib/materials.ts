@@ -15,6 +15,7 @@ export async function getMaterials(
     .from("materials")
     .select("*")
     .eq("tenant_id", current.tenant.id)
+    .is("deleted_at", null)
     .eq("kind", kind)
     .order("name");
   if (!includeArchived) query = query.eq("is_active", true);
@@ -36,6 +37,7 @@ export async function getMaterials(
     stock_remaining:
       row.stock_remaining === null ? null : Number(row.stock_remaining),
     is_active: row.is_active,
+    deleted_at: row.deleted_at ?? null,
     created_at: row.created_at,
     updated_at: row.updated_at,
   }));

@@ -52,6 +52,7 @@ export interface Material {
   cost_per_unit: number;
   stock_remaining: number | null;
   is_active: boolean;
+  deleted_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -72,6 +73,8 @@ export interface TenantPrinter {
   maintenance_brl_per_hour: number;
   notes: string | null;
   is_active: boolean;
+  // Preenchido quando a máquina está na Lixeira.
+  deleted_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -144,6 +147,7 @@ export interface Quote {
   notes: string | null;
   total_brl: number;
   approved_at: string | null;
+  deleted_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -173,6 +177,7 @@ export interface QuoteItem {
   quantity: number;
   suggested_unit_price_brl: number | null;
   unit_price_brl: number;
+  deleted_at: string | null;
   created_at: string;
 }
 
@@ -184,3 +189,20 @@ export type QuoteItemInsert = Pick<
   calc_input?: unknown;
   calc_result?: unknown;
 };
+
+export type AuditAction = "create" | "update" | "delete" | "restore";
+
+// Somente leitura para o usuário: a tabela é preenchida por gatilho no banco.
+export interface AuditLogRow {
+  id: string;
+  tenant_id: string;
+  actor_id: string | null;
+  entity: string;
+  entity_id: string;
+  action: AuditAction;
+  summary: string | null;
+  changes: Record<string, { de: unknown; para: unknown }> | null;
+  reverted_at: string | null;
+  reverted_by: string | null;
+  created_at: string;
+}

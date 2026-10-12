@@ -65,6 +65,7 @@ export async function saveMaterial(
       .update({ ...fields, updated_at: new Date().toISOString() })
       .eq("id", id)
       .eq("tenant_id", current.tenant.id)
+      .is("deleted_at", null)
       .select("id");
     if (error || !data || data.length === 0) {
       return { ok: false, message: GENERIC_ERROR };
@@ -90,6 +91,7 @@ export async function setMaterialActive(
     .update({ is_active: isActive, updated_at: new Date().toISOString() })
     .eq("id", id)
     .eq("tenant_id", current.tenant.id)
+    .is("deleted_at", null)
     .select("id");
 
   if (error || !data || data.length === 0) {

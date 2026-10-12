@@ -4,9 +4,9 @@ import type { Quote, QuoteItem, QuoteItemKind, QuoteStatus } from "@/types/datab
 
 // Dados do próprio tenant (RLS). Nunca selecionar calc_input nem calc_result aqui.
 const QUOTE_COLUMNS =
-  "id, tenant_id, number, customer_name, customer_contact, status, valid_until, notes, total_brl, approved_at, created_at, updated_at";
+  "id, tenant_id, number, customer_name, customer_contact, status, valid_until, notes, total_brl, approved_at, deleted_at, created_at, updated_at";
 const ITEM_COLUMNS =
-  "id, tenant_id, quote_id, position, kind, description, quantity, suggested_unit_price_brl, unit_price_brl, created_at";
+  "id, tenant_id, quote_id, position, kind, description, quantity, suggested_unit_price_brl, unit_price_brl, deleted_at, created_at";
 
 type QuoteRow = Record<keyof Quote, unknown>;
 type ItemRow = Record<keyof QuoteItem, unknown>;
@@ -23,6 +23,7 @@ function toQuote(row: QuoteRow): Quote {
     notes: (row.notes as string | null) ?? null,
     total_brl: Number(row.total_brl ?? 0),
     approved_at: (row.approved_at as string | null) ?? null,
+    deleted_at: (row.deleted_at as string | null) ?? null,
     created_at: String(row.created_at),
     updated_at: String(row.updated_at),
   };
@@ -42,6 +43,7 @@ function toItem(row: ItemRow): QuoteItem {
         ? null
         : Number(row.suggested_unit_price_brl),
     unit_price_brl: Number(row.unit_price_brl),
+    deleted_at: (row.deleted_at as string | null) ?? null,
     created_at: String(row.created_at),
   };
 }
@@ -61,6 +63,7 @@ export async function getQuotes(filters: {
     .from("quotes")
     .select(QUOTE_COLUMNS)
     .eq("tenant_id", current.tenant.id)
+    .is("deleted_at", null)
     .order("created_at", { ascending: false })
     .limit(200);
   if (filters.status) query = query.eq("status", filters.status);
@@ -81,6 +84,7 @@ export async function getQuote(id: string): Promise<Quote | null> {
     .select(QUOTE_COLUMNS)
     .eq("id", id)
     .eq("tenant_id", current.tenant.id)
+    .is("deleted_at", null)
     .maybeSingle();
   if (error) throw new Error("Não foi possível carregar o orçamento.");
   return data ? toQuote(data as unknown as QuoteRow) : null;
@@ -96,6 +100,7 @@ export async function getQuoteItems(quoteId: string): Promise<QuoteItem[]> {
     .select(ITEM_COLUMNS)
     .eq("quote_id", quoteId)
     .eq("tenant_id", current.tenant.id)
+    .is("deleted_at", null)
     .order("position", { ascending: true });
   if (error) throw new Error("Não foi possível carregar os itens.");
   return ((data ?? []) as unknown as ItemRow[]).map(toItem);

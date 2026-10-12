@@ -116,6 +116,7 @@ export async function computeFdm(input: FdmCalcInput): Promise<CalcResult> {
       .eq("tenant_id", tenant.id)
       .eq("type", "fdm")
       .eq("is_active", true)
+      .is("deleted_at", null)
       .maybeSingle(),
     supabase
       .from("materials")
@@ -123,7 +124,8 @@ export async function computeFdm(input: FdmCalcInput): Promise<CalcResult> {
       .in("id", materialIds)
       .eq("tenant_id", tenant.id)
       .eq("kind", "filament")
-      .eq("is_active", true),
+      .eq("is_active", true)
+      .is("deleted_at", null),
     getCostSettings(tenant.id),
   ]);
 

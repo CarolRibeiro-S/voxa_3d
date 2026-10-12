@@ -7,6 +7,7 @@ import {
   Calculator,
   Droplet,
   FileText,
+  History,
   KanbanSquare,
   LayoutDashboard,
   Lock,
@@ -39,6 +40,7 @@ const NAV_ITEMS: NavItem[] = [
   },
   { href: "/maquinas", label: "Máquinas", icon: Printer, feature: "calculator" },
   { href: "/materiais", label: "Materiais", icon: Boxes, feature: "calculator" },
+  { href: "/historico", label: "Histórico", icon: History },
   { href: "/configuracoes", label: "Configurações", icon: Settings },
 ];
 

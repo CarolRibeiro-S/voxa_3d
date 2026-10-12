@@ -116,6 +116,7 @@ export async function computeResin(input: ResinCalcInput): Promise<CalcResult> {
       .eq("tenant_id", tenant.id)
       .eq("type", "resin")
       .eq("is_active", true)
+      .is("deleted_at", null)
       .maybeSingle(),
     supabase
       .from("materials")
@@ -123,7 +124,8 @@ export async function computeResin(input: ResinCalcInput): Promise<CalcResult> {
       .in("id", materialIds)
       .eq("tenant_id", tenant.id)
       .eq("kind", "resin")
-      .eq("is_active", true),
+      .eq("is_active", true)
+      .is("deleted_at", null),
     getCostSettings(tenant.id),
   ]);
 

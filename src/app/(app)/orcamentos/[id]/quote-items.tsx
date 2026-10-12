@@ -287,7 +287,7 @@ function ItemRowView({
         open={confirming}
         onOpenChange={setConfirming}
         title="Remover este item?"
-        description={`O item "${item.description}" será removido do orçamento.`}
+        description={`O item "${item.description}" irá para a Lixeira e pode ser restaurado em Histórico.`}
         confirmLabel="Remover item"
         variant="danger"
         onConfirm={() => removeQuoteItem(item.id)}
