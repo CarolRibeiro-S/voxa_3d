@@ -1,36 +1,29 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Download } from "lucide-react";
 import { Button, buttonClasses } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatQuoteNumber } from "@/lib/quotes-schema";
 import { deleteQuote } from "../actions";
 
 interface QuoteDangerActionsProps {
   quoteId: string;
   number: number;
+  customerName: string;
   hasItems: boolean;
 }
 
-// Baixar PDF e excluir o orçamento (com confirmação em dois passos).
-export function QuoteDangerActions({ quoteId, number, hasItems }: QuoteDangerActionsProps) {
+// Baixar PDF e excluir o orçamento (a exclusão pede confirmação).
+export function QuoteDangerActions({
+  quoteId,
+  number,
+  customerName,
+  hasItems,
+}: QuoteDangerActionsProps) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
   const [confirming, setConfirming] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  function remove() {
-    setError(null);
-    startTransition(async () => {
-      const result = await deleteQuote(quoteId);
-      if (result.ok) router.push("/orcamentos");
-      else {
-        setError(result.message);
-        setConfirming(false);
-      }
-    });
-  }
 
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -55,30 +48,27 @@ export function QuoteDangerActions({ quoteId, number, hasItems }: QuoteDangerAct
         </div>
       )}
 
-      {!confirming ? (
-        <Button
-          variant="ghost"
-          className="text-red-700 hover:bg-red-50"
-          onClick={() => setConfirming(true)}
-        >
-          Excluir orçamento
-        </Button>
-      ) : (
-        <>
-          <Button variant="dark" disabled={pending} onClick={remove}>
-            Confirmar exclusão
-          </Button>
-          <Button variant="ghost" disabled={pending} onClick={() => setConfirming(false)}>
-            Cancelar
-          </Button>
-        </>
-      )}
+      <Button
+        variant="ghost"
+        className="text-red-700 hover:bg-red-50"
+        onClick={() => setConfirming(true)}
+      >
+        Excluir orçamento
+      </Button>
 
-      {error && (
-        <p role="alert" className="w-full text-xs text-red-600">
-          {error}
-        </p>
-      )}
+      <ConfirmDialog
+        open={confirming}
+        onOpenChange={setConfirming}
+        title={`Excluir orçamento nº ${formatQuoteNumber(number)}?`}
+        description={`O orçamento de ${customerName} e os itens dele serão excluídos.`}
+        confirmLabel="Excluir orçamento"
+        variant="danger"
+        onConfirm={async () => {
+          const result = await deleteQuote(quoteId);
+          if (result.ok) router.push("/orcamentos");
+          return result;
+        }}
+      />
     </div>
   );
 }

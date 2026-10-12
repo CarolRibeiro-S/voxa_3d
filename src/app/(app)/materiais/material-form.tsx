@@ -5,10 +5,13 @@ import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConfirmSaveDialog } from "@/components/ui/confirm-save-dialog";
 import { FormField } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { IntegerInput } from "@/components/ui/integer-input";
 import { MoneyInput } from "@/components/ui/money-input";
+import { useConfirmSubmit } from "@/hooks/use-confirm-submit";
+import { formatBRL } from "@/lib/format";
 import {
   costPerUnit,
   formatUnitCost,
@@ -53,15 +56,33 @@ export function MaterialForm({
   const [pending, startTransition] = useTransition();
   const [serverError, setServerError] = useState<string | null>(null);
 
+  const form = useForm<MaterialValues, unknown, MaterialValues>({
+    resolver: zodResolver(materialSchema),
+    defaultValues: toDefaults(kind, material),
+    mode: "onChange",
+  });
   const {
     register,
     control,
     handleSubmit,
-    formState: { errors, isDirty, isValid },
-  } = useForm<MaterialValues, unknown, MaterialValues>({
-    resolver: zodResolver(materialSchema),
-    defaultValues: toDefaults(kind, material),
-    mode: "onChange",
+    formState: { errors, isValid },
+  } = form;
+
+  // Na edição, salvar pede confirmação com o resumo do que muda.
+  const unit = (v: unknown) => (v == null ? "" : `${v} ${info.unit}`);
+  const confirmed = useConfirmSubmit({
+    form,
+    fields: [
+      { name: "name", label: "Nome" },
+      { name: "brand", label: "Marca" },
+      { name: "material_type", label: "Tipo de material" },
+      { name: "color", label: "Cor" },
+      { name: "price_brl", label: "Preço pago", format: (v) => formatBRL(Number(v ?? 0)) },
+      { name: "package_size", label: "Tamanho da embalagem", format: unit },
+      { name: "stock_remaining", label: "Estoque restante", format: unit },
+    ],
+    save: (values) => saveMaterial(material?.id ?? null, values),
+    onSaved: onDone,
   });
 
   const v = useWatch({ control });
@@ -78,9 +99,13 @@ export function MaterialForm({
   );
 
   function onSubmit(values: MaterialValues) {
+    if (material) {
+      confirmed.onSubmit(values);
+      return;
+    }
     setServerError(null);
     startTransition(async () => {
-      const result = await saveMaterial(material?.id ?? null, values);
+      const result = await saveMaterial(null, values);
       if (result.ok) onDone();
       else setServerError(result.message);
     });
@@ -90,7 +115,7 @@ export function MaterialForm({
 
   return (
     <form
-      onSubmit={handleSubmit(onSubmit)}
+      onSubmit={(e) => void handleSubmit(onSubmit)(e)}
       noValidate
       className="flex min-h-0 flex-1 flex-col"
     >
@@ -271,6 +296,11 @@ export function MaterialForm({
           </p>
         )}
 
+        {confirmed.notice && (
+          <p role="status" className="text-sm font-medium text-tinta/70">
+            {confirmed.notice}
+          </p>
+        )}
         {serverError && (
           <p role="alert" className="text-sm text-red-600">
             {serverError}
@@ -284,13 +314,14 @@ export function MaterialForm({
         </Button>
         <Button
           type="submit"
-          disabled={!isDirty || !isValid || pending}
+          disabled={!isValid || pending}
           className="flex-1"
         >
           {pending && <Loader2 size={16} className="animate-spin" aria-hidden="true" />}
           Salvar
         </Button>
       </div>
+      <ConfirmSaveDialog {...confirmed.dialog} />
     </form>
   );
 }

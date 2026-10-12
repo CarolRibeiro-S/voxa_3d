@@ -14,6 +14,30 @@ export const QUOTE_STATUS_LABEL: Record<QuoteStatus, string> = {
   declined: "Recusado",
 };
 
+// Fonte única do fluxo de status, usada pela interface e pelo servidor.
+export const QUOTE_TRANSITIONS: Record<QuoteStatus, readonly QuoteStatus[]> = {
+  draft: ["sent"],
+  sent: ["approved", "declined", "draft"],
+  approved: ["sent"],
+  declined: ["sent"],
+};
+
+export function canTransition(from: QuoteStatus, to: QuoteStatus): boolean {
+  return QUOTE_TRANSITIONS[from].includes(to);
+}
+
+export function transitionLabel(from: QuoteStatus, to: QuoteStatus): string {
+  if (to === "sent") return from === "draft" ? "Marcar como enviado" : "Reabrir";
+  if (to === "approved") return "Marcar como aprovado";
+  if (to === "declined") return "Marcar como recusado";
+  return "Voltar para rascunho";
+}
+
+// Aprovado e recusado ficam somente leitura até serem reabertos.
+export function isQuoteLocked(status: QuoteStatus): boolean {
+  return status === "approved" || status === "declined";
+}
+
 // 1 vira "0001".
 export function formatQuoteNumber(n: number): string {
   return String(n).padStart(4, "0");

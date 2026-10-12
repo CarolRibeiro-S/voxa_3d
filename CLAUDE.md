@@ -72,6 +72,10 @@ Mobile first, `rounded-xl`, sombras suaves.
 - Variáveis de ambiente: ver `.env.example`. Nunca criar `.env.local` com valores reais.
 - Os comandos de terminal são sempre em bash.
 - Nunca fazer git add, git commit nem git push. Apenas preparar o código, rodar lint e build, listar o que mudou e sugerir a mensagem de commit. Quem faz add, commit e push é sempre a Carol. Nunca incluir Co-Authored-By, "Generated with Claude Code" ou qualquer menção a Claude ou Anthropic em mensagens de commit, PRs ou arquivos.
+## Padrões de interface
+
+- Toda ação que altera dado existente (editar e salvar, excluir, remover, arquivar, mudar status) abre ConfirmDialog; edição mostra o resumo do que muda (ChangesSummary). Criação e cálculo não. Nunca usar botão de confirmação inline.
+
 ## Proteção da lógica e dos dados do produto
 
 - Todo cálculo de orçamento roda no servidor (Server Action ou Route Handler).

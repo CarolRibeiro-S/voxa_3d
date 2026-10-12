@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ConfirmSaveDialog } from "@/components/ui/confirm-save-dialog";
 import { FormField } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { useConfirmSubmit } from "@/hooks/use-confirm-submit";
 import { formatPhone, normalizePhoneDigits } from "@/lib/format";
 import {
   tenantProfileSchema,
@@ -17,9 +18,12 @@ import {
 import { saveTenantProfile } from "./actions";
 
 export function TenantProfileForm({ initial }: { initial: TenantProfileInput }) {
-  const [pending, startTransition] = useTransition();
-  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [saved, setSaved] = useState(false);
 
+  const form = useForm<TenantProfileInput, unknown, TenantProfileValues>({
+    resolver: zodResolver(tenantProfileSchema),
+    defaultValues: initial,
+  });
   const {
     register,
     control,
@@ -27,24 +31,22 @@ export function TenantProfileForm({ initial }: { initial: TenantProfileInput }) 
     reset,
     getValues,
     formState: { errors, isDirty },
-  } = useForm<TenantProfileInput, unknown, TenantProfileValues>({
-    resolver: zodResolver(tenantProfileSchema),
-    defaultValues: initial,
-  });
+  } = form;
 
-  function onSubmit() {
-    setMessage(null);
-    const values = getValues();
-    startTransition(async () => {
-      const result = await saveTenantProfile(values);
-      if (result.ok) {
-        reset(values);
-        setMessage({ ok: true, text: "Dados salvos." });
-      } else {
-        setMessage({ ok: false, text: result.message });
-      }
-    });
-  }
+  // Salvar pede confirmação com o resumo do que muda.
+  const confirmed = useConfirmSubmit({
+    form,
+    fields: [
+      { name: "business_name", label: "Nome da empresa" },
+      { name: "whatsapp", label: "WhatsApp", format: (v) => formatPhone(String(v ?? "")) },
+      { name: "instagram", label: "Instagram", format: (v) => (v ? `@${v}` : "") },
+    ],
+    save: (values) => saveTenantProfile(values),
+    onSaved: () => {
+      reset(getValues());
+      setSaved(true);
+    },
+  });
 
   return (
     <Card>
@@ -53,7 +55,10 @@ export function TenantProfileForm({ initial }: { initial: TenantProfileInput }) 
         Estas informações aparecem no topo dos seus orçamentos em PDF.
       </p>
 
-      <form onSubmit={(e) => void handleSubmit(onSubmit)(e)} className="mt-6 space-y-6" noValidate>
+      <form onSubmit={(e) => void handleSubmit(confirmed.onSubmit)(e)}
+        className="mt-6 space-y-6"
+        noValidate
+      >
         <div className="grid gap-4 md:grid-cols-2">
           <div className="md:col-span-2">
             <FormField
@@ -137,19 +142,21 @@ export function TenantProfileForm({ initial }: { initial: TenantProfileInput }) 
           />
         </div>
 
-        {message && (
-          <p
-            role={message.ok ? "status" : "alert"}
-            className={message.ok ? "text-sm font-medium text-green-700" : "text-sm text-red-600"}
-          >
-            {message.text}
+        {confirmed.notice && (
+          <p role="status" className="text-sm font-medium text-tinta/70">
+            {confirmed.notice}
+          </p>
+        )}
+        {saved && !isDirty && (
+          <p role="status" className="text-sm font-medium text-green-700">
+            Dados salvos.
           </p>
         )}
 
-        <Button type="submit" disabled={!isDirty || pending} className="w-full md:w-auto">
-          {pending && <Loader2 size={16} className="animate-spin" aria-hidden="true" />}
+        <Button type="submit" className="w-full md:w-auto">
           Salvar dados
         </Button>
+        <ConfirmSaveDialog {...confirmed.dialog} />
       </form>
     </Card>
   );

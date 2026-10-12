@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Plus, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatBRL } from "@/lib/format";
 import {
   costPerUnit,
@@ -55,72 +56,36 @@ function MaterialActions({
   material: Material;
   onEdit: () => void;
 }) {
-  const [pending, startTransition] = useTransition();
   const [confirming, setConfirming] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  function change(isActive: boolean) {
-    setError(null);
-    startTransition(async () => {
-      const result = await setMaterialActive(material.id, isActive);
-      if (!result.ok) setError(result.message);
-      setConfirming(false);
-    });
-  }
+  const archiving = material.is_active;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Button variant="secondary" size="sm" className="min-h-11" onClick={onEdit}>
         Editar
       </Button>
-      {material.is_active ? (
-        confirming ? (
-          <>
-            <Button
-              variant="dark"
-              size="sm"
-              className="min-h-11"
-              disabled={pending}
-              onClick={() => change(false)}
-            >
-              Confirmar arquivar
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="min-h-11"
-              disabled={pending}
-              onClick={() => setConfirming(false)}
-            >
-              Cancelar
-            </Button>
-          </>
-        ) : (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="min-h-11"
-            onClick={() => setConfirming(true)}
-          >
-            Arquivar
-          </Button>
-        )
-      ) : (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="min-h-11"
-          disabled={pending}
-          onClick={() => change(true)}
-        >
-          Restaurar
-        </Button>
-      )}
-      {error && (
-        <p role="alert" className="w-full text-xs text-red-600">
-          {error}
-        </p>
-      )}
+      <Button
+        variant="ghost"
+        size="sm"
+        className="min-h-11"
+        onClick={() => setConfirming(true)}
+      >
+        {archiving ? "Arquivar" : "Restaurar"}
+      </Button>
+
+      <ConfirmDialog
+        open={confirming}
+        onOpenChange={setConfirming}
+        title={archiving ? "Arquivar material?" : "Restaurar material?"}
+        description={
+          archiving
+            ? `O material ${material.name} deixa de aparecer nas calculadoras. Orçamentos e cálculos já salvos não mudam.`
+            : `O material ${material.name} volta a aparecer nas calculadoras.`
+        }
+        confirmLabel={archiving ? "Arquivar material" : "Restaurar material"}
+        variant={archiving ? "danger" : "default"}
+        onConfirm={() => setMaterialActive(material.id, !archiving)}
+      />
     </div>
   );
 }

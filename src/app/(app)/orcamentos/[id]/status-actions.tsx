@@ -1,50 +1,77 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { QUOTE_TRANSITIONS, transitionLabel } from "@/lib/quotes-schema";
 import type { QuoteStatus } from "@/types/database";
 import { setQuoteStatus } from "../actions";
 
-const ACTIONS: { status: QuoteStatus; label: string }[] = [
-  { status: "sent", label: "Marcar como enviado" },
-  { status: "approved", label: "Marcar como aprovado" },
-  { status: "declined", label: "Marcar como recusado" },
-  { status: "draft", label: "Voltar para rascunho" },
-];
-
-export function StatusActions({ quoteId, status }: { quoteId: string; status: QuoteStatus }) {
-  const [pending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-
-  function change(next: QuoteStatus) {
-    setError(null);
-    startTransition(async () => {
-      const result = await setQuoteStatus(quoteId, next);
-      if (!result.ok) setError(result.message);
-    });
+function dialogText(from: QuoteStatus, to: QuoteStatus): { title: string; description: string } {
+  if (to === "sent" && from === "draft") {
+    return {
+      title: "Marcar como enviado?",
+      description: "O orçamento passa para Enviado. Novos itens só podem ser adicionados em rascunho.",
+    };
   }
+  if (to === "sent") {
+    return {
+      title: "Reabrir orçamento?",
+      description: "Ele volta para Enviado e pode ser editado de novo.",
+    };
+  }
+  if (to === "approved") {
+    return {
+      title: "Marcar como aprovado?",
+      description: "O orçamento ficará bloqueado para edição. Você pode reabrir depois.",
+    };
+  }
+  if (to === "declined") {
+    return {
+      title: "Marcar como recusado?",
+      description: "O orçamento ficará bloqueado para edição. Você pode reabrir depois.",
+    };
+  }
+  return {
+    title: "Voltar para rascunho?",
+    description: "O orçamento volta a ser um rascunho e aceita novos itens.",
+  };
+}
+
+// Mostra só as ações válidas para o status atual. Cada uma pede confirmação.
+export function StatusActions({ quoteId, status }: { quoteId: string; status: QuoteStatus }) {
+  const [target, setTarget] = useState<QuoteStatus | null>(null);
+  const text = target ? dialogText(status, target) : null;
 
   return (
     <div>
       <div className="flex flex-wrap gap-2">
-        {ACTIONS.filter((a) => a.status !== status).map((a) => (
+        {QUOTE_TRANSITIONS[status].map((to) => (
           <Button
-            key={a.status}
-            variant={a.status === "draft" ? "ghost" : "secondary"}
+            key={to}
+            variant={to === "draft" ? "ghost" : "secondary"}
             size="sm"
             className="min-h-11"
-            disabled={pending}
-            onClick={() => change(a.status)}
+            onClick={() => setTarget(to)}
           >
-            {a.label}
+            {transitionLabel(status, to)}
           </Button>
         ))}
       </div>
-      {error && (
-        <p role="alert" className="mt-2 text-xs text-red-600">
-          {error}
-        </p>
-      )}
+
+      <ConfirmDialog
+        open={target !== null}
+        onOpenChange={(open) => {
+          if (!open) setTarget(null);
+        }}
+        title={text?.title ?? ""}
+        description={text?.description ?? ""}
+        confirmLabel={target ? transitionLabel(status, target) : "Confirmar"}
+        onConfirm={async () => {
+          if (target === null) return { ok: false, message: "Nada para alterar." };
+          return setQuoteStatus(quoteId, target);
+        }}
+      />
     </div>
   );
 }

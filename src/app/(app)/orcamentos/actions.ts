@@ -7,8 +7,10 @@ import { fdmCalcSchema, type FdmCalcInput } from "@/lib/fdm-calc-schema";
 import { hasFeature } from "@/lib/plans";
 import { checkCalcLimit } from "@/lib/pricing-core";
 import {
+  canTransition,
   customItemSchema,
   itemDescriptionSchema,
+  isQuoteLocked,
   itemEditSchema,
   newQuoteSchema,
   quoteCustomerSchema,
@@ -37,6 +39,7 @@ const GENERIC_ERROR = "Não foi possível salvar. Tente novamente.";
 const SESSION_ERROR = "Sua sessão expirou. Entre novamente.";
 const NOT_DRAFT_ERROR = "Só é possível adicionar itens a orçamentos em rascunho.";
 const FIRST_ISSUE = "Confira os valores informados.";
+const LOCKED_ERROR = "Este orçamento está bloqueado para edição. Reabra para editar.";
 
 type Guard = { ok: true; tenantId: string } | { ok: false; message: string };
 
@@ -65,6 +68,38 @@ function todayPlusDays(days: number): string {
 }
 
 const emptyToNull = (value: string) => (value === "" ? null : value);
+
+type Db = Awaited<ReturnType<typeof createClient>>;
+
+// Status atual lido do banco, nunca do navegador. null se não existir ou for de outra conta.
+async function currentStatus(
+  supabase: Db,
+  tenantId: string,
+  quoteId: string,
+): Promise<QuoteStatus | null> {
+  const { data } = await supabase
+    .from("quotes")
+    .select("status")
+    .eq("id", quoteId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  return data ? (data.status as QuoteStatus) : null;
+}
+
+// Status do orçamento a que um item pertence.
+async function itemQuoteStatus(
+  supabase: Db,
+  tenantId: string,
+  itemId: string,
+): Promise<QuoteStatus | null> {
+  const { data } = await supabase
+    .from("quote_items")
+    .select("quote_id")
+    .eq("id", itemId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  return data ? currentStatus(supabase, tenantId, String(data.quote_id)) : null;
+}
 
 function revalidateQuote(id?: string) {
   revalidatePath("/orcamentos");
@@ -118,6 +153,10 @@ export async function updateQuoteCustomer(
     updated_at: new Date().toISOString(),
   };
   const supabase = await createClient();
+  const status = await currentStatus(supabase, g.tenantId, id);
+  if (status === null) return { ok: false, message: GENERIC_ERROR };
+  if (isQuoteLocked(status)) return { ok: false, message: LOCKED_ERROR };
+
   const { data, error } = await supabase
     .from("quotes")
     .update(patch)
@@ -137,21 +176,31 @@ export async function setQuoteStatus(id: string, status: QuoteStatus): Promise<A
     return { ok: false, message: GENERIC_ERROR };
   }
 
+  // A transição é validada com o status atual do banco, não com o que veio do navegador.
+  const supabase = await createClient();
+  const from = await currentStatus(supabase, g.tenantId, id);
+  if (from === null || !canTransition(from, status)) {
+    return { ok: false, message: "Não foi possível alterar o status." };
+  }
+
   const now = new Date().toISOString();
   const patch: QuoteUpdate = {
     status,
-    // Ao aprovar grava a data. Ao sair de aprovado, limpa.
+    // Ao aprovar grava a data. Ao reabrir (ou sair de aprovado), limpa.
     approved_at: status === "approved" ? now : null,
     updated_at: now,
   };
-  const supabase = await createClient();
   const { data, error } = await supabase
     .from("quotes")
     .update(patch)
     .eq("id", id)
     .eq("tenant_id", g.tenantId)
+    // Garante que o status não mudou entre a leitura e a gravação.
+    .eq("status", from)
     .select("id");
-  if (error || !data || data.length === 0) return fail("status", error ?? {});
+  if (error || !data || data.length === 0) {
+    return fail("status", error ?? {}, "Não foi possível alterar o status.");
+  }
 
   revalidateQuote(id);
   return { ok: true };
@@ -263,6 +312,10 @@ export async function updateQuoteItem(
   }
 
   const supabase = await createClient();
+  const status = await itemQuoteStatus(supabase, g.tenantId, itemId);
+  if (status === null) return { ok: false, message: GENERIC_ERROR };
+  if (isQuoteLocked(status)) return { ok: false, message: LOCKED_ERROR };
+
   const { data, error } = await supabase
     .from("quote_items")
     .update({
@@ -284,6 +337,10 @@ export async function removeQuoteItem(itemId: string): Promise<ActionResult> {
   if (!uuidSchema.safeParse(itemId).success) return { ok: false, message: GENERIC_ERROR };
 
   const supabase = await createClient();
+  const status = await itemQuoteStatus(supabase, g.tenantId, itemId);
+  if (status === null) return { ok: false, message: GENERIC_ERROR };
+  if (isQuoteLocked(status)) return { ok: false, message: LOCKED_ERROR };
+
   const { data, error } = await supabase
     .from("quote_items")
     .delete()

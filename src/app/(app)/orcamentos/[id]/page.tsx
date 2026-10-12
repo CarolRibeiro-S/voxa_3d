@@ -5,7 +5,12 @@ import { Card } from "@/components/ui/card";
 import { formatBRL, formatContact, formatDate } from "@/lib/format";
 import { hasFeature } from "@/lib/plans";
 import { getQuote, getQuoteItems } from "@/lib/quotes";
-import { formatQuoteNumber, UUID_PATTERN } from "@/lib/quotes-schema";
+import {
+  formatQuoteNumber,
+  isQuoteLocked,
+  QUOTE_STATUS_LABEL,
+  UUID_PATTERN,
+} from "@/lib/quotes-schema";
 import { getCurrentTenant } from "@/lib/tenant";
 import { QuoteStatusBadge } from "../quote-status";
 import { CustomerForm } from "./customer-form";
@@ -27,6 +32,8 @@ export default async function OrcamentoPage({ params }: { params: Promise<{ id: 
   const quote = await getQuote(id);
   if (!quote) notFound();
   const items = await getQuoteItems(id);
+
+  const locked = isQuoteLocked(quote.status);
 
   const rows = items.map((item) => ({
     id: item.id,
@@ -65,12 +72,19 @@ export default async function OrcamentoPage({ params }: { params: Promise<{ id: 
         )}
       </div>
 
+      {locked && (
+        <p role="status" className="rounded-xl bg-nevoa p-4 text-sm font-medium text-violeta-escuro">
+          Este orçamento está {QUOTE_STATUS_LABEL[quote.status].toLowerCase()}. Reabra para editar.
+        </p>
+      )}
+
       <Card>
         <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-violeta-escuro">
           Cliente
         </h2>
         <CustomerForm
           quoteId={quote.id}
+          readOnly={locked}
           initial={{
             customer_name: quote.customer_name,
             customer_contact: quote.customer_contact ?? "",
@@ -91,7 +105,7 @@ export default async function OrcamentoPage({ params }: { params: Promise<{ id: 
         <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-violeta-escuro">
           Itens
         </h2>
-        <QuoteItems quoteId={quote.id} items={rows} canAdd={quote.status === "draft"} />
+        <QuoteItems quoteId={quote.id} items={rows} status={quote.status} />
       </Card>
 
       <Card variant="dark" className="flex items-center justify-between gap-4">
@@ -101,7 +115,12 @@ export default async function OrcamentoPage({ params }: { params: Promise<{ id: 
         </span>
       </Card>
 
-      <QuoteDangerActions quoteId={quote.id} number={quote.number} hasItems={items.length > 0} />
+      <QuoteDangerActions
+        quoteId={quote.id}
+        number={quote.number}
+        customerName={quote.customer_name}
+        hasItems={items.length > 0}
+      />
     </div>
   );
 }

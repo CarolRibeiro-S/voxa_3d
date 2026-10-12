@@ -6,19 +6,23 @@ import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Plus } from "lucide-react";
 import { Button, buttonClasses } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ConfirmSaveDialog } from "@/components/ui/confirm-save-dialog";
 import { FormField } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { IntegerInput } from "@/components/ui/integer-input";
 import { MoneyInput } from "@/components/ui/money-input";
 import { PanelBody, PanelFooter, SidePanel } from "@/components/ui/side-panel";
+import { useConfirmSubmit } from "@/hooks/use-confirm-submit";
 import { formatBRL } from "@/lib/format";
 import {
   customItemSchema,
+  isQuoteLocked,
   itemEditSchema,
   type CustomItemValues,
   type ItemEditValues,
 } from "@/lib/quotes-schema";
-import type { QuoteItemKind } from "@/types/database";
+import type { QuoteItemKind, QuoteStatus } from "@/types/database";
 import { addCustomItem, removeQuoteItem, updateQuoteItem } from "../actions";
 
 export interface ItemRow {
@@ -54,30 +58,35 @@ function PanelActions({
 }
 
 function EditItemForm({ item, onClose }: { item: ItemRow; onClose: () => void }) {
-  const [pending, startTransition] = useTransition();
-  const [serverError, setServerError] = useState<string | null>(null);
+  const form = useForm<ItemEditValues>({
+    resolver: zodResolver(itemEditSchema),
+    defaultValues: { description: item.description, unit_price_brl: item.unit_price_brl },
+  });
   const {
     register,
     control,
     handleSubmit,
     formState: { errors },
-  } = useForm<ItemEditValues>({
-    resolver: zodResolver(itemEditSchema),
-    defaultValues: { description: item.description, unit_price_brl: item.unit_price_brl },
-  });
+  } = form;
 
-  function onSubmit(values: ItemEditValues) {
-    setServerError(null);
-    startTransition(async () => {
-      const result = await updateQuoteItem(item.id, values);
-      if (result.ok) onClose();
-      else setServerError(result.message);
-    });
-  }
+  // Salvar pede confirmação com o resumo do que muda (o diálogo abre por cima do painel).
+  const confirmed = useConfirmSubmit({
+    form,
+    fields: [
+      { name: "description", label: "Descrição" },
+      {
+        name: "unit_price_brl",
+        label: "Valor unitário final",
+        format: (v) => formatBRL(Number(v ?? 0)),
+      },
+    ],
+    save: (values) => updateQuoteItem(item.id, values),
+    onSaved: onClose,
+  });
 
   return (
     <form
-      onSubmit={(e) => void handleSubmit(onSubmit)(e)}
+      onSubmit={(e) => void handleSubmit(confirmed.onSubmit)(e)}
       noValidate
       className="flex min-h-0 flex-1 flex-col"
     >
@@ -123,13 +132,14 @@ function EditItemForm({ item, onClose }: { item: ItemRow; onClose: () => void })
             </FormField>
           )}
         />
-        {serverError && (
-          <p role="alert" className="text-sm text-red-600">
-            {serverError}
+        {confirmed.notice && (
+          <p role="status" className="text-sm font-medium text-tinta/70">
+            {confirmed.notice}
           </p>
         )}
       </PanelBody>
-      <PanelActions pending={pending} submitLabel="Salvar item" onCancel={onClose} />
+      <PanelActions pending={false} submitLabel="Salvar item" onCancel={onClose} />
+      <ConfirmSaveDialog {...confirmed.dialog} />
     </form>
   );
 }
@@ -227,21 +237,16 @@ function CustomItemForm({ quoteId, onClose }: { quoteId: string; onClose: () => 
   );
 }
 
-function ItemRowView({ item, onEdit }: { item: ItemRow; onEdit: () => void }) {
-  const [pending, startTransition] = useTransition();
+function ItemRowView({
+  item,
+  locked,
+  onEdit,
+}: {
+  item: ItemRow;
+  locked: boolean;
+  onEdit: () => void;
+}) {
   const [confirming, setConfirming] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  function remove() {
-    setError(null);
-    startTransition(async () => {
-      const result = await removeQuoteItem(item.id);
-      if (!result.ok) {
-        setError(result.message);
-        setConfirming(false);
-      }
-    });
-  }
 
   const differs =
     item.suggested_unit_price_brl !== null &&
@@ -263,11 +268,11 @@ function ItemRowView({ item, onEdit }: { item: ItemRow; onEdit: () => void }) {
         </div>
         <p className="font-extrabold text-violeta">{formatBRL(item.subtotal_brl)}</p>
       </div>
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <Button variant="secondary" size="sm" className="min-h-11" onClick={onEdit}>
-          Editar
-        </Button>
-        {!confirming ? (
+      {!locked && (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <Button variant="secondary" size="sm" className="min-h-11" onClick={onEdit}>
+            Editar
+          </Button>
           <Button
             variant="ghost"
             size="sm"
@@ -276,28 +281,17 @@ function ItemRowView({ item, onEdit }: { item: ItemRow; onEdit: () => void }) {
           >
             Remover
           </Button>
-        ) : (
-          <>
-            <Button variant="dark" size="sm" className="min-h-11" disabled={pending} onClick={remove}>
-              Confirmar remoção
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="min-h-11"
-              disabled={pending}
-              onClick={() => setConfirming(false)}
-            >
-              Cancelar
-            </Button>
-          </>
-        )}
-      </div>
-      {error && (
-        <p role="alert" className="mt-1 text-xs text-red-600">
-          {error}
-        </p>
+        </div>
       )}
+      <ConfirmDialog
+        open={confirming}
+        onOpenChange={setConfirming}
+        title="Remover este item?"
+        description={`O item "${item.description}" será removido do orçamento.`}
+        confirmLabel="Remover item"
+        variant="danger"
+        onConfirm={() => removeQuoteItem(item.id)}
+      />
     </li>
   );
 }
@@ -305,12 +299,14 @@ function ItemRowView({ item, onEdit }: { item: ItemRow; onEdit: () => void }) {
 export function QuoteItems({
   quoteId,
   items,
-  canAdd,
+  status,
 }: {
   quoteId: string;
   items: ItemRow[];
-  canAdd: boolean;
+  status: QuoteStatus;
 }) {
+  const locked = isQuoteLocked(status);
+  const canAdd = status === "draft";
   const [editing, setEditing] = useState<ItemRow | null>(null);
   const [adding, setAdding] = useState(false);
 
@@ -318,12 +314,14 @@ export function QuoteItems({
     <div>
       {items.length === 0 ? (
         <p className="rounded-xl bg-nevoa p-4 text-sm text-tinta/70">
-          Nenhum item ainda. Adicione um item avulso ou calcule nas calculadoras.
+          {locked
+            ? "Este orçamento não tem itens."
+            : "Nenhum item ainda. Adicione um item avulso ou calcule nas calculadoras."}
         </p>
       ) : (
         <ul className="divide-y divide-violeta/10">
           {items.map((item) => (
-            <ItemRowView key={item.id} item={item} onEdit={() => setEditing(item)} />
+            <ItemRowView key={item.id} item={item} locked={locked} onEdit={() => setEditing(item)} />
           ))}
         </ul>
       )}
@@ -345,10 +343,12 @@ export function QuoteItems({
           </p>
         </div>
       ) : (
-        <p className="mt-4 text-xs text-tinta/60">
-          Só orçamentos em rascunho aceitam novos itens. Use &quot;Voltar para rascunho&quot; para
-          adicionar.
-        </p>
+        !locked && (
+          <p className="mt-4 text-xs text-tinta/60">
+            Novos itens só podem ser adicionados em rascunho. Use &quot;Voltar para rascunho&quot;
+            para adicionar.
+          </p>
+        )
       )}
 
       <SidePanel open={editing !== null} onClose={() => setEditing(null)} title="Editar item">

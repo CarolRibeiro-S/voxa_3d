@@ -6,11 +6,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Info, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfirmSaveDialog } from "@/components/ui/confirm-save-dialog";
 import { FormField } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { IntegerInput } from "@/components/ui/integer-input";
 import { MoneyInput } from "@/components/ui/money-input";
 import { Textarea } from "@/components/ui/textarea";
+import { useConfirmSubmit } from "@/hooks/use-confirm-submit";
+import { formatBRL } from "@/lib/format";
 import {
   POWER_BASIS_LABEL,
   PRINTER_TYPE_LABEL,
@@ -83,15 +86,50 @@ export function PrinterForm({
   // Marca e modelo vindos do catálogo ficam somente leitura.
   const lockIdentity = catalog !== null || printer?.catalog_id != null;
 
+  const form = useForm<PrinterValues, unknown, PrinterValues>({
+    resolver: zodResolver(printerSchema),
+    defaultValues: toDefaults(printer, catalog),
+    mode: "onChange",
+  });
   const {
     register,
     control,
     handleSubmit,
-    formState: { errors, isDirty, isValid },
-  } = useForm<PrinterValues, unknown, PrinterValues>({
-    resolver: zodResolver(printerSchema),
-    defaultValues: toDefaults(printer, catalog),
-    mode: "onChange",
+    formState: { errors, isValid },
+  } = form;
+
+  // Na edição, salvar pede confirmação com o resumo do que muda.
+  const confirmed = useConfirmSubmit({
+    form,
+    fields: [
+      {
+        name: "type",
+        label: "Tipo",
+        format: (v) => PRINTER_TYPE_LABEL[v as keyof typeof PRINTER_TYPE_LABEL] ?? "",
+      },
+      { name: "brand", label: "Marca" },
+      { name: "model", label: "Modelo" },
+      { name: "nickname", label: "Apelido" },
+      { name: "power_w", label: "Consumo médio", format: (v) => (v == null ? "" : `${v} W`) },
+      {
+        name: "price_brl",
+        label: "Preço da máquina",
+        format: (v) => (v == null ? "" : formatBRL(Number(v))),
+      },
+      {
+        name: "lifespan_hours",
+        label: "Vida útil",
+        format: (v) => (v == null ? "" : `${v} h`),
+      },
+      {
+        name: "maintenance_brl_per_hour",
+        label: "Manutenção por hora",
+        format: (v) => `${formatBRL(Number(v ?? 0))}/hora`,
+      },
+      { name: "notes", label: "Observações" },
+    ],
+    save: (values) => savePrinter(printer?.id ?? null, values, null),
+    onSaved: onDone,
   });
 
   useEffect(() => {
@@ -104,13 +142,14 @@ export function PrinterForm({
   }, [printer]);
 
   function onSubmit(values: PrinterValues) {
+    if (isEdit) {
+      confirmed.onSubmit(values);
+      return;
+    }
     setServerError(null);
     startTransition(async () => {
-      const result = await savePrinter(
-        printer?.id ?? null,
-        values,
-        printer ? null : (catalog?.catalogId ?? null),
-      );
+      // Aqui é sempre criação.
+      const result = await savePrinter(null, values, catalog?.catalogId ?? null);
       if (result.ok) onDone();
       else setServerError(result.message);
     });
@@ -135,7 +174,7 @@ export function PrinterForm({
 
   return (
     <form
-      onSubmit={handleSubmit(onSubmit)}
+      onSubmit={(e) => void handleSubmit(onSubmit)(e)}
       noValidate
       className="flex min-h-0 flex-1 flex-col"
     >
@@ -370,6 +409,11 @@ export function PrinterForm({
           )}
         </FormField>
 
+        {confirmed.notice && (
+          <p role="status" className="text-sm font-medium text-tinta/70">
+            {confirmed.notice}
+          </p>
+        )}
         {serverError && (
           <p role="alert" className="text-sm text-red-600">
             {serverError}
@@ -388,14 +432,14 @@ export function PrinterForm({
         </Button>
         <Button
           type="submit"
-          // Em edição precisa haver mudança. Na criação basta estar válido.
-          disabled={!isValid || (isEdit && !isDirty) || pending}
+          disabled={!isValid || pending}
           className="flex-1"
         >
           {pending && <Loader2 size={16} className="animate-spin" aria-hidden="true" />}
           Salvar
         </Button>
       </div>
+      <ConfirmSaveDialog {...confirmed.dialog} />
     </form>
   );
 }

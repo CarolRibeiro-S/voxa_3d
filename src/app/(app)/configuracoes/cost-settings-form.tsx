@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import {
   Controller,
   useForm,
@@ -8,19 +8,20 @@ import {
   type Control,
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ConfirmSaveDialog } from "@/components/ui/confirm-save-dialog";
 import { FormField } from "@/components/ui/field";
 import { MoneyInput } from "@/components/ui/money-input";
 import { PercentInput } from "@/components/ui/percent-input";
+import { useConfirmSubmit } from "@/hooks/use-confirm-submit";
 import {
   costSettingsSchema,
   sumPercentCents,
   SUM_FIELDS,
   type CostSettingsValues,
 } from "@/lib/cost-settings";
-import { formatBRL, formatPercent } from "@/lib/format";
+import { formatBRL, formatMoneyDigits, formatPercent } from "@/lib/format";
 import type { CostSettings } from "@/types/database";
 import {
   saveCostSettings,
@@ -130,39 +131,58 @@ function toFormValues(s: CostSettings): CostSettingsValues {
 }
 
 export function CostSettingsForm({ settings }: { settings: CostSettings }) {
-  const [state, formAction, actionPending] = useActionState(
-    saveCostSettings,
-    null,
-  );
-  const [transitionPending, startTransition] = useTransition();
-  const pending = actionPending || transitionPending;
+  const [saved, setSaved] = useState(false);
   const [exampleCost, setExampleCost] = useState(10);
   const [simResult, setSimResult] = useState<SimulationResult | null>(null);
   const [simPending, startSim] = useTransition();
   const simRequest = useRef(0);
 
+  const form = useForm<CostSettingsValues, unknown, CostSettingsValues>({
+    resolver: zodResolver(costSettingsSchema),
+    defaultValues: toFormValues(settings),
+    // Valida a cada digitação. Sem isso o padrão é validar só ao enviar.
+    mode: "onChange",
+  });
   const {
     handleSubmit,
     control,
     reset,
     getValues,
     formState: { isDirty, isValid },
-  } = useForm<CostSettingsValues, unknown, CostSettingsValues>({
-    resolver: zodResolver(costSettingsSchema),
-    defaultValues: toFormValues(settings),
-    // Valida a cada digitação. Sem isso o padrão é validar só ao enviar.
-    mode: "onChange",
+  } = form;
+
+  const brl = (v: unknown) => formatBRL(Number(v ?? 0));
+  const pct = (v: unknown) => `${formatPercent(Number(v ?? 0))}%`;
+
+  // Salvar pede confirmação com o resumo do que muda. Depois de salvar, os valores atuais
+  // viram o novo ponto de partida.
+  const confirmed = useConfirmSubmit({
+    form,
+    fields: [
+      {
+        name: "energy_kwh_brl",
+        label: "Energia",
+        format: (v) => `R$ ${formatMoneyDigits(Number(v ?? 0), 4)}/kWh`,
+      },
+      { name: "labor_hour_brl", label: "Valor da sua hora de trabalho", format: (v) => `${brl(v)}/hora` },
+      { name: "packaging_default_brl", label: "Embalagem padrão por pedido", format: brl },
+      { name: "failure_rate_pct", label: "Taxa de falha", format: pct },
+      { name: "default_margin_pct", label: "Margem de lucro desejada", format: pct },
+      { name: "marketplace_fee_pct", label: "Taxa do marketplace", format: pct },
+      { name: "payment_fee_pct", label: "Taxa de pagamento", format: pct },
+      { name: "tax_pct", label: "Imposto sobre a venda", format: pct },
+    ],
+    save: async (values) => {
+      const result = await saveCostSettings(null, values);
+      return result?.ok
+        ? { ok: true }
+        : { ok: false, message: result?.message ?? "Não foi possível salvar. Tente novamente." };
+    },
+    onSaved: () => {
+      reset(getValues());
+      setSaved(true);
+    },
   });
-
-  // Depois de salvar, os valores atuais viram o novo ponto de partida.
-  const savedAt = state?.ok ? state.savedAt : null;
-  useEffect(() => {
-    if (savedAt) reset(getValues());
-  }, [savedAt, reset, getValues]);
-
-  function onSubmit(values: CostSettingsValues) {
-    startTransition(() => formAction(values));
-  }
 
   const v = useWatch({ control });
   const sumCents = sumPercentCents(v);
@@ -201,7 +221,11 @@ export function CostSettingsForm({ settings }: { settings: CostSettings }) {
         Estes valores serão usados nas calculadoras e nos orçamentos.
       </p>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-8" noValidate>
+      <form
+        onSubmit={(e) => void handleSubmit(confirmed.onSubmit)(e)}
+        className="mt-6 space-y-8"
+        noValidate
+      >
         <section>
           <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-violeta-escuro">
             Custos do dia a dia
@@ -354,25 +378,21 @@ export function CostSettingsForm({ settings }: { settings: CostSettings }) {
           </p>
         </section>
 
-        {state && !state.ok && (
-          <p role="alert" className="text-sm text-red-600">
-            {state.message}
+        {confirmed.notice && (
+          <p role="status" className="text-sm font-medium text-tinta/70">
+            {confirmed.notice}
           </p>
         )}
-        {state?.ok && !isDirty && (
+        {saved && !isDirty && (
           <p role="status" className="text-sm font-medium text-green-700">
             Configurações salvas.
           </p>
         )}
 
-        <Button
-          type="submit"
-          disabled={!isDirty || !isValid || pending}
-          className="w-full md:w-auto"
-        >
-          {pending && <Loader2 size={16} className="animate-spin" aria-hidden="true" />}
+        <Button type="submit" disabled={!isValid} className="w-full md:w-auto">
           Salvar configurações
         </Button>
+        <ConfirmSaveDialog {...confirmed.dialog} />
       </form>
     </Card>
   );

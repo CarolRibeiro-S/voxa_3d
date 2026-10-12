@@ -1,50 +1,72 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConfirmSaveDialog } from "@/components/ui/confirm-save-dialog";
 import { FormField } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useConfirmSubmit } from "@/hooks/use-confirm-submit";
+import { formatContact, formatDate } from "@/lib/format";
 import { quoteCustomerSchema, type QuoteCustomerValues } from "@/lib/quotes-schema";
 import { updateQuoteCustomer } from "../actions";
 
 export function CustomerForm({
   quoteId,
   initial,
+  readOnly = false,
 }: {
   quoteId: string;
   initial: QuoteCustomerValues;
+  // Orçamento aprovado ou recusado: só leitura.
+  readOnly?: boolean;
 }) {
-  const [pending, startTransition] = useTransition();
-  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [saved, setSaved] = useState(false);
+  const form = useForm<QuoteCustomerValues>({
+    resolver: zodResolver(quoteCustomerSchema),
+    defaultValues: initial,
+  });
   const {
     register,
     handleSubmit,
     reset,
+    getValues,
     formState: { errors, isDirty },
-  } = useForm<QuoteCustomerValues>({
-    resolver: zodResolver(quoteCustomerSchema),
-    defaultValues: initial,
+  } = form;
+
+  // Salvar pede confirmação com o resumo do que muda.
+  const confirmed = useConfirmSubmit({
+    form,
+    fields: [
+      { name: "customer_name", label: "Nome do cliente" },
+      {
+        name: "customer_contact",
+        label: "Contato",
+        format: (v) => formatContact(String(v ?? "")),
+      },
+      {
+        name: "valid_until",
+        label: "Válido até",
+        format: (v) => (v ? formatDate(String(v)) : ""),
+      },
+      { name: "notes", label: "Observações" },
+    ],
+    save: (values) => updateQuoteCustomer(quoteId, values),
+    onSaved: () => {
+      reset(getValues());
+      setSaved(true);
+    },
   });
 
-  function onSubmit(values: QuoteCustomerValues) {
-    setMessage(null);
-    startTransition(async () => {
-      const result = await updateQuoteCustomer(quoteId, values);
-      if (result.ok) {
-        reset(values);
-        setMessage({ ok: true, text: "Dados salvos." });
-      } else {
-        setMessage({ ok: false, text: result.message });
-      }
-    });
-  }
-
   return (
-    <form onSubmit={(e) => void handleSubmit(onSubmit)(e)} noValidate className="space-y-4">
+    <form
+      onSubmit={(e) => void handleSubmit(confirmed.onSubmit)(e)}
+      noValidate
+      className="space-y-4"
+    >
+      <fieldset disabled={readOnly} className="min-w-0 space-y-4 border-0 p-0">
       <div className="grid gap-4 md:grid-cols-2">
         <FormField id="customer_name" label="Nome do cliente" error={errors.customer_name?.message}>
           {(a) => (
@@ -98,18 +120,26 @@ export function CustomerForm({
         )}
       </FormField>
 
-      {message && (
-        <p
-          role={message.ok ? "status" : "alert"}
-          className={message.ok ? "text-sm font-medium text-green-700" : "text-sm text-red-600"}
-        >
-          {message.text}
-        </p>
+      </fieldset>
+
+      {!readOnly && (
+        <>
+          {confirmed.notice && (
+            <p role="status" className="text-sm font-medium text-tinta/70">
+              {confirmed.notice}
+            </p>
+          )}
+          {saved && !isDirty && (
+            <p role="status" className="text-sm font-medium text-green-700">
+              Dados salvos.
+            </p>
+          )}
+          <Button type="submit" className="w-full md:w-auto">
+            Salvar dados do cliente
+          </Button>
+          <ConfirmSaveDialog {...confirmed.dialog} />
+        </>
       )}
-      <Button type="submit" disabled={!isDirty || pending} className="w-full md:w-auto">
-        {pending && <Loader2 size={16} className="animate-spin" aria-hidden="true" />}
-        Salvar dados do cliente
-      </Button>
     </form>
   );
 }
