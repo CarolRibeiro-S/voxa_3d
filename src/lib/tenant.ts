@@ -1,8 +1,10 @@
 import { cache } from "react";
+import { resolveAccess, type Access } from "@/lib/billing/access";
 import { createClient } from "@/lib/supabase/server";
 import type { CostSettings, MemberRole, Tenant, TenantProfile } from "@/types/database";
 
-// Sempre com o cliente do usuário (RLS). Nunca usar a service role key aqui.
+// Sempre com o cliente do usuário (RLS). A service role key só é usada por src/lib/billing,
+// para criar a assinatura de teste.
 
 export const getCurrentUser = cache(async () => {
   const supabase = await createClient();
@@ -13,7 +15,7 @@ export const getCurrentUser = cache(async () => {
 });
 
 export const getCurrentTenant = cache(
-  async (): Promise<{ tenant: Tenant; role: MemberRole } | null> => {
+  async (): Promise<{ tenant: Tenant; role: MemberRole; access: Access } | null> => {
     const user = await getCurrentUser();
     if (!user) return null;
 
@@ -33,7 +35,13 @@ export const getCurrentTenant = cache(
       .maybeSingle();
     if (!tenant) return null;
 
-    return { tenant: tenant as Tenant, role: member.role as MemberRole };
+    // O plano efetivo vem da assinatura (teste de 7 dias ou plano contratado), não da coluna antiga.
+    const access = await resolveAccess(supabase, tenant as Tenant);
+    return {
+      tenant: { ...(tenant as Tenant), plan: access.plan },
+      role: member.role as MemberRole,
+      access,
+    };
   },
 );
 

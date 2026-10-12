@@ -17,7 +17,8 @@ export type AuditEntity =
   | "quotes"
   | "quote_items"
   | "cost_settings"
-  | "tenant_profile";
+  | "tenant_profile"
+  | "sales_channels";
 
 export type EntityGroup = "all" | "machines" | "materials" | "quotes" | "settings";
 
@@ -52,6 +53,10 @@ export const ENTITIES: Record<AuditEntity, EntityInfo> = {
     label: "Item de orçamento", article: "o", noun: "item de orçamento", group: "quotes",
     softDelete: true, hasUpdatedAt: false, singleton: false, showSummary: true,
   },
+  sales_channels: {
+    label: "Canal de venda", article: "o", noun: "canal de venda", group: "settings",
+    softDelete: true, hasUpdatedAt: true, singleton: false, showSummary: true,
+  },
   cost_settings: {
     label: "Custos e margens", article: "os", noun: "custos e margens", group: "settings",
     softDelete: false, hasUpdatedAt: true, singleton: true, showSummary: false,
@@ -67,7 +72,10 @@ export const ENTITY_GROUPS: Record<EntityGroup, { label: string; entities: Audit
   machines: { label: "Máquinas", entities: ["tenant_printers"] },
   materials: { label: "Materiais", entities: ["materials"] },
   quotes: { label: "Orçamentos", entities: ["quotes", "quote_items"] },
-  settings: { label: "Configurações", entities: ["cost_settings", "tenant_profile"] },
+  settings: {
+    label: "Configurações",
+    entities: ["cost_settings", "tenant_profile", "sales_channels"],
+  },
 };
 
 const SOFT_DELETE_ENTITIES = (Object.keys(ENTITIES) as AuditEntity[]).filter(
@@ -121,6 +129,14 @@ export const ALLOWED_FIELDS: Record<AuditEntity, Record<string, FieldSpec>> = {
     description: { label: "Descrição", kind: "text" },
     quantity: { label: "Quantidade", kind: "int" },
     unit_price_brl: { label: "Valor unitário", kind: "brl" },
+  },
+  sales_channels: {
+    name: { label: "Nome", kind: "text" },
+    commission_pct: { label: "Comissão do canal", kind: "pct" },
+    payment_pct: { label: "Taxa de pagamento", kind: "pct" },
+    tax_pct: { label: "Imposto", kind: "pct" },
+    fixed_fee_brl: { label: "Taxa fixa por venda", kind: "brl" },
+    is_active: { label: "Situação", kind: "bool", trueLabel: "Ativo", falseLabel: "Inativo" },
   },
   cost_settings: {
     energy_kwh_brl: { label: "Energia", kind: "brl4", unit: "/kWh" },
@@ -240,7 +256,9 @@ function phraseFor(
   const onlyState = action === "update" && changes.length === 1 && changes[0].field === "is_active";
   if (onlyState) {
     const active = changes[0].para === true;
-    if (entity === "tenant_printers") verb = active ? "reativou" : "desativou";
+    if (entity === "tenant_printers" || entity === "sales_channels") {
+      verb = active ? "reativou" : "desativou";
+    }
     if (entity === "materials") {
       verb = active ? "restaurou" : "arquivou";
       if (active) suffix = " do arquivo";
@@ -345,7 +363,7 @@ export async function listTrash(): Promise<TrashEntry[]> {
   const tenantId = current.tenant.id;
   const supabase = await createClient();
 
-  const [printers, materials, quotes, items] = await Promise.all([
+  const [printers, materials, quotes, items, channels] = await Promise.all([
     supabase
       .from("tenant_printers")
       .select("id, nickname, brand, model, deleted_at")
@@ -370,8 +388,14 @@ export async function listTrash(): Promise<TrashEntry[]> {
       .eq("tenant_id", tenantId)
       .not("deleted_at", "is", null)
       .limit(100),
+    supabase
+      .from("sales_channels")
+      .select("id, name, deleted_at")
+      .eq("tenant_id", tenantId)
+      .not("deleted_at", "is", null)
+      .limit(100),
   ]);
-  if (printers.error || materials.error || quotes.error || items.error) {
+  if (printers.error || materials.error || quotes.error || items.error || channels.error) {
     throw new Error("Não foi possível carregar a lixeira.");
   }
 
@@ -409,6 +433,13 @@ export async function listTrash(): Promise<TrashEntry[]> {
       id: String(r.id),
       typeLabel: ENTITIES.quotes.label,
       name: `${String(r.number).padStart(4, "0")} ${r.customer_name}`,
+      deletedAt: String(r.deleted_at),
+    })),
+    ...(channels.data ?? []).map((r) => ({
+      entity: "sales_channels" as const,
+      id: String(r.id),
+      typeLabel: ENTITIES.sales_channels.label,
+      name: String(r.name),
       deletedAt: String(r.deleted_at),
     })),
     ...(items.data ?? []).map((r) => {

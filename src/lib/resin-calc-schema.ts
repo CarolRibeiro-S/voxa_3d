@@ -42,6 +42,8 @@ export const resinCalcSchema = z
     extras: z.array(extraSchema).max(MAX_EXTRAS, `Use até ${MAX_EXTRAS} itens extras`),
     packaging_brl: money(999_999.99),
     quantity: integer(1, 9999, "A quantidade mínima é 1").default(1),
+    // Peças impressas juntas na mesma mesa. 1 significa uma peça por impressão.
+    piecesPerPlate: integer(1, 1000, "O mínimo é 1").default(1),
     margin_pct: integer(0, 999),
   })
   .superRefine((v, ctx) => {

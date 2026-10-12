@@ -21,6 +21,7 @@ export type IntegerFieldName =
   | "print_minutes"
   | "labor_minutes"
   | "quantity"
+  | "piecesPerPlate"
   | "margin_pct";
 
 type IntegerForm = Record<IntegerFieldName, number>;

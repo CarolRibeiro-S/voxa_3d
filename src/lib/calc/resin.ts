@@ -1,12 +1,16 @@
 import "server-only";
 import type { CalcResult } from "@/lib/calc-types";
 import { resinCalcSchema, type ResinCalcInput, type ResinCalcValues } from "@/lib/resin-calc-schema";
+import { loadChannels } from "@/lib/calc/channels";
+import { normalizeResinPlate, platesInfo } from "@/lib/calc/plates";
 import {
   buildWarnings,
   CALC_GENERIC_ERROR,
+  computeChannelPrices,
   priceFromBase,
   round2,
   toNumber,
+  type ChannelRates,
   type PricingSettings,
 } from "@/lib/pricing-core";
 import { createClient } from "@/lib/supabase/server";
@@ -37,26 +41,31 @@ export function computeResinPrice(
   printer: ResinPrinterRow,
   costById: Map<string, number>,
   settings: ResinSettings,
+  channels: ChannelRates[] | null = null,
 ): CalcResult {
   const powerW = toNumber(printer.power_w);
   const printerPrice = toNumber(printer.price_brl);
   const lifespanHours = toNumber(printer.lifespan_hours);
   const maintenancePerHour = Number(printer.maintenance_brl_per_hour ?? 0);
 
-  const material = v.materials.reduce(
+  // Com várias peças por mesa os valores da mesa viram valores por peça.
+  const plate = normalizeResinPlate(v);
+  const pv = plate.values;
+
+  const material = pv.materials.reduce(
     (total, line) =>
       total + (line.part_ml + line.support_ml) * (costById.get(line.material_id) ?? 0),
     0,
   );
-  const hours = v.print_hours + v.print_minutes / 60;
+  const hours = plate.hours;
   const energy = powerW !== null ? (powerW / 1000) * hours * settings.energy_kwh_brl : 0;
   const wear =
     printerPrice !== null && lifespanHours !== null && lifespanHours > 0
       ? hours * (printerPrice / lifespanHours)
       : 0;
   const maintenance = hours * maintenancePerHour;
-  const labor = (v.labor_minutes / 60) * settings.labor_hour_brl;
-  const extras = v.extras.reduce((total, item) => total + item.value_brl, 0);
+  const labor = (pv.labor_minutes / 60) * settings.labor_hour_brl;
+  const extras = pv.extras.reduce((total, item) => total + item.value_brl, 0);
 
   const base = material + energy + wear + maintenance + labor + extras;
 
@@ -79,6 +88,11 @@ export function computeResinPrice(
     },
     total: priced.total,
     quantity: v.quantity,
+    channels:
+      channels === null
+        ? null
+        : computeChannelPrices(priced.costBeforeFees, v.margin_pct, v.quantity, channels),
+    plates: platesInfo(v),
     warnings: buildWarnings({
       energyKwhBrl: settings.energy_kwh_brl,
       laborHourBrl: settings.labor_hour_brl,
@@ -108,7 +122,7 @@ export async function computeResin(input: ResinCalcInput): Promise<CalcResult> {
   const supabase = await createClient();
   const materialIds = v.materials.map((line) => line.material_id);
 
-  const [printerRes, materialsRes, settings] = await Promise.all([
+  const [printerRes, materialsRes, settings, channels] = await Promise.all([
     supabase
       .from("tenant_printers")
       .select("power_w, price_brl, lifespan_hours, maintenance_brl_per_hour")
@@ -127,6 +141,7 @@ export async function computeResin(input: ResinCalcInput): Promise<CalcResult> {
       .eq("is_active", true)
       .is("deleted_at", null),
     getCostSettings(tenant.id),
+    loadChannels(supabase, tenant.id, tenant.plan),
   ]);
 
   const printer = printerRes.data as ResinPrinterRow | null;
@@ -139,5 +154,5 @@ export async function computeResin(input: ResinCalcInput): Promise<CalcResult> {
     return { ok: false, message: CALC_GENERIC_ERROR };
   }
 
-  return computeResinPrice(v, printer, costById, settings);
+  return computeResinPrice(v, printer, costById, settings, channels);
 }

@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { ChannelPrice } from "@/lib/calc-types";
 
 // Núcleo comum de preço das calculadoras. Só roda no servidor.
 
@@ -53,6 +54,8 @@ export type PricingOutcome =
         fees: number;
       };
       total: { price: number; profit: number };
+      // Custo por peça (falhas e embalagem incluídas) antes de margem e taxas, sem arredondar.
+      costBeforeFees: number;
       // Valores sem arredondar, só para checar se ficaram finitos.
       raw: number[];
     }
@@ -101,8 +104,61 @@ export function priceFromBase(
       price: round2(price * order.quantity),
       profit: round2(profit * order.quantity),
     },
+    costBeforeFees: cost,
     raw: [price, profit, cost, failures, fees],
   };
+}
+
+export interface ChannelRates {
+  id: string;
+  name: string;
+  commission_pct: number;
+  payment_pct: number;
+  tax_pct: number;
+  fixed_fee_brl: number;
+}
+
+// Preço por canal de venda. costBeforeFees é o custo por peça já com falhas e embalagem, antes
+// de margem, comissão, pagamento e imposto. A taxa fixa vale por unidade vendida.
+export function computeChannelPrices(
+  costBeforeFees: number,
+  marginPct: number,
+  quantity: number,
+  channels: ChannelRates[],
+): ChannelPrice[] {
+  return channels.map((channel) => {
+    // Soma em centésimos inteiros, como no resto do núcleo.
+    const sumCents = [marginPct, channel.commission_pct, channel.payment_pct, channel.tax_pct].reduce(
+      (total, n) => total + Math.round(n * 100),
+      0,
+    );
+    if (sumCents >= 10_000) {
+      return {
+        id: channel.id,
+        name: channel.name,
+        available: false,
+        pricePerUnit: 0,
+        feesPerUnit: 0,
+        profitPerUnit: 0,
+        total: 0,
+      };
+    }
+
+    const feesPct = channel.commission_pct + channel.payment_pct + channel.tax_pct;
+    const price = (costBeforeFees + channel.fixed_fee_brl) / (1 - sumCents / 10_000);
+    const fees = (price * feesPct) / 100 + channel.fixed_fee_brl;
+    const profit = (price * marginPct) / 100;
+    return {
+      id: channel.id,
+      name: channel.name,
+      available: true,
+      pricePerUnit: round2(price),
+      feesPerUnit: round2(fees),
+      profitPerUnit: round2(profit),
+      // O total usa o preço sem arredondar e arredonda só no fim.
+      total: round2(price * quantity),
+    };
+  });
 }
 
 export interface WarningInput {

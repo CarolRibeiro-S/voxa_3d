@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Controller,
   FormProvider,
@@ -11,6 +12,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { IntegerField, SectionTitle, SELECT_CLASS } from "@/components/calculator/calc-fields";
 import { ExtrasList } from "@/components/calculator/extras-list";
+import { PlateSwitch } from "@/components/calculator/plate-switch";
 import { ResultPanel } from "@/components/calculator/result-panel";
 import { SaveToQuote } from "@/components/calculator/save-to-quote";
 import { useCalcRunner } from "@/components/calculator/use-calc-runner";
@@ -56,6 +58,7 @@ export function FdmCalculator({ printers, materials, defaults }: FdmCalculatorPr
       extras: [],
       packaging_brl: defaults.packaging_default_brl,
       quantity: 1,
+      piecesPerPlate: 1,
       margin_pct: defaults.default_margin_pct,
     },
   });
@@ -65,6 +68,10 @@ export function FdmCalculator({ printers, materials, defaults }: FdmCalculatorPr
     handleSubmit,
     formState: { errors },
   } = methods;
+
+  // Várias peças por mesa: os valores digitados passam a ser da mesa inteira.
+  const [multi, setMulti] = useState(false);
+  const plate = multi ? "mesa, " : "";
 
   const materialLines = useFieldArray({ control, name: "materials" });
   const watched = useWatch({ control });
@@ -103,6 +110,8 @@ export function FdmCalculator({ printers, materials, defaults }: FdmCalculatorPr
                   </select>
                 )}
               </FormField>
+
+              <PlateSwitch multi={multi} onMultiChange={setMulti} />
 
               <ul className="space-y-3">
                 {materialLines.fields.map((item, index) => (
@@ -143,7 +152,7 @@ export function FdmCalculator({ printers, materials, defaults }: FdmCalculatorPr
                         render={({ field, fieldState }) => (
                           <FormField
                             id={`materials-${index}-part`}
-                            label="Peso da peça (g)"
+                            label={multi ? "Peso da peça (mesa, g)" : "Peso da peça (g)"}
                             error={fieldState.error?.message}
                           >
                             {(a11y) => (
@@ -172,7 +181,7 @@ export function FdmCalculator({ printers, materials, defaults }: FdmCalculatorPr
                         render={({ field, fieldState }) => (
                           <FormField
                             id={`materials-${index}-support`}
-                            label="Peso do suporte (g)"
+                            label={multi ? "Peso do suporte (mesa, g)" : "Peso do suporte (g)"}
                             error={fieldState.error?.message}
                           >
                             {(a11y) => (
@@ -235,7 +244,7 @@ export function FdmCalculator({ printers, materials, defaults }: FdmCalculatorPr
             <div className="space-y-4">
               <fieldset>
                 <legend className="mb-1.5 block text-sm font-medium text-tinta">
-                  Tempo de impressão
+                  Tempo de impressão{multi ? " (mesa)" : ""}
                 </legend>
                 <div className="grid grid-cols-2 gap-3">
                   <IntegerField
@@ -257,7 +266,7 @@ export function FdmCalculator({ printers, materials, defaults }: FdmCalculatorPr
               <IntegerField
                 name="labor_minutes"
                 id="labor_minutes"
-                label="Seu tempo de preparo e acabamento (minutos)"
+                label={`Seu tempo de preparo e acabamento (${plate}minutos)`}
                 help="Fatiar, preparar a mesa, tirar suportes, lixar e pintar."
                 suffix="min"
                 maxDigits={5}
@@ -266,7 +275,7 @@ export function FdmCalculator({ printers, materials, defaults }: FdmCalculatorPr
           </Card>
 
           <Card>
-            <SectionTitle>Custos extras</SectionTitle>
+            <SectionTitle>Custos extras{multi ? " (mesa inteira)" : ""}</SectionTitle>
             <ExtrasList />
           </Card>
 

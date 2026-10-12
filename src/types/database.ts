@@ -226,3 +226,30 @@ export interface EnergyTariffRpc {
   expired: boolean;
   estimated_taxes: boolean;
 }
+
+export interface SalesChannel {
+  id: string;
+  tenant_id: string;
+  name: string;
+  commission_pct: number;
+  payment_pct: number;
+  tax_pct: number;
+  fixed_fee_brl: number;
+  is_active: boolean;
+  position: number;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export type SalesChannelInsert = Pick<
+  SalesChannel,
+  | "tenant_id"
+  | "name"
+  | "commission_pct"
+  | "payment_pct"
+  | "tax_pct"
+  | "fixed_fee_brl"
+  | "is_active"
+  | "position"
+>;

@@ -1,10 +1,12 @@
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { daysUntil, formatDate } from "@/lib/format";
-import { PLANS } from "@/lib/plans";
+import { hasFeature, PLANS } from "@/lib/plans";
+import { getSalesChannels } from "@/lib/sales-channels";
 import { getCostSettings, getCurrentTenant, getTenantProfile } from "@/lib/tenant";
 import type { SubscriptionStatus } from "@/types/database";
 import { CostSettingsForm } from "./cost-settings-form";
+import { SalesChannelsCard } from "./sales-channels-card";
 import { TenantProfileForm } from "./tenant-profile-form";
 
 export const metadata = { title: "Configurações | Voxa3D" };
@@ -32,9 +34,11 @@ export default async function ConfiguracoesPage() {
   if (!current) return null; // O layout já mostra o erro de conta.
 
   const { tenant } = current;
-  const [settings, profile] = await Promise.all([
+  const canChannels = hasFeature(tenant.plan, "channels");
+  const [settings, profile, channels] = await Promise.all([
     getCostSettings(tenant.id),
     getTenantProfile(tenant.id),
+    canChannels ? getSalesChannels() : Promise.resolve([]),
   ]);
 
   return (
@@ -86,6 +90,15 @@ export default async function ConfiguracoesPage() {
           whatsapp: profile?.whatsapp ?? "",
           instagram: profile?.instagram ?? "",
         }}
+      />
+
+      <SalesChannelsCard
+        channels={channels}
+        defaults={{
+          payment_pct: settings?.payment_fee_pct ?? 0,
+          tax_pct: settings?.tax_pct ?? 0,
+        }}
+        locked={!canChannels}
       />
     </div>
   );

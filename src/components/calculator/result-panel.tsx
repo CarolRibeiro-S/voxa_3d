@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { TriangleAlert } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import type { CalcBreakdown, CalcSuccess } from "@/lib/calc-types";
@@ -69,6 +70,20 @@ export function ResultPanel({ result, error, stale, pending, actions }: ResultPa
                 <strong className="text-base text-white">{formatBRL(result.total.price)}</strong>
               </p>
             )}
+            {result.plates && (
+              <dl className="mt-3 space-y-1 border-t border-white/15 pt-3 text-sm text-white/80">
+                <div className="flex justify-between gap-3">
+                  <dt>Mesas necessárias:</dt>
+                  <dd className="font-semibold text-white">{result.plates.platesNeeded}</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt>Tempo total de impressão:</dt>
+                  <dd className="font-semibold text-white">
+                    {result.plates.totalHours} h {result.plates.totalMinutes} min
+                  </dd>
+                </div>
+              </dl>
+            )}
           </Card>
 
           {actions}
@@ -88,6 +103,66 @@ export function ResultPanel({ result, error, stale, pending, actions }: ResultPa
               ))}
             </dl>
           </Card>
+
+          {result.channels !== null &&
+            (result.channels.length === 0 ? (
+              <p className="rounded-xl bg-nevoa p-3 text-xs text-tinta/80">
+                Cadastre seus canais de venda em{" "}
+                <Link
+                  href="/configuracoes"
+                  className="font-semibold text-violeta underline hover:text-violeta-escuro"
+                >
+                  Configurações
+                </Link>{" "}
+                para ver o preço em cada um.
+              </p>
+            ) : (
+              <Card>
+                <h2 className="text-sm font-bold uppercase tracking-wide text-violeta-escuro">
+                  Preço por canal
+                </h2>
+                <div className="mt-3 overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <caption className="sr-only">Preço sugerido em cada canal de venda</caption>
+                    <thead className="text-tinta/60">
+                      <tr>
+                        <th scope="col" className="py-2 pr-3 font-semibold">Canal</th>
+                        <th scope="col" className="py-2 pr-3 text-right font-semibold">Preço por peça</th>
+                        <th scope="col" className="py-2 pr-3 text-right font-semibold">Taxas por peça</th>
+                        <th scope="col" className="py-2 pr-3 text-right font-semibold">Lucro por peça</th>
+                        <th scope="col" className="py-2 text-right font-semibold">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-violeta/10">
+                      {result.channels.map((channel) =>
+                        channel.available ? (
+                          <tr key={channel.id}>
+                            <th scope="row" className="py-2 pr-3 font-semibold">{channel.name}</th>
+                            <td className="whitespace-nowrap py-2 pr-3 text-right font-semibold text-violeta">
+                              {formatBRL(channel.pricePerUnit)}
+                            </td>
+                            <td className="whitespace-nowrap py-2 pr-3 text-right">
+                              {formatBRL(channel.feesPerUnit)}
+                            </td>
+                            <td className="whitespace-nowrap py-2 pr-3 text-right">
+                              {formatBRL(channel.profitPerUnit)}
+                            </td>
+                            <td className="whitespace-nowrap py-2 text-right">{formatBRL(channel.total)}</td>
+                          </tr>
+                        ) : (
+                          <tr key={channel.id}>
+                            <th scope="row" className="py-2 pr-3 font-semibold">{channel.name}</th>
+                            <td colSpan={4} className="py-2 text-tinta/70">
+                              Indisponível: comissão, taxas e margem somam 100% ou mais.
+                            </td>
+                          </tr>
+                        ),
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            ))}
 
           {result.warnings.length > 0 && (
             <ul className="space-y-2">

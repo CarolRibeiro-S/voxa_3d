@@ -10,7 +10,7 @@ Repositório: https://github.com/CarolRibeiro-S/voxa_3d.git
 | Plano | Preço | Features |
 | --- | --- | --- |
 | Calculadora | R$ 47 (pagamento único) | calculator, quotes |
-| Pro | R$ 79 por mês (1 usuário) | calculator, quotes, orders_kanban, finance, sales_reports, stock, maintenance |
+| Pro | R$ 79 por mês (1 usuário) | calculator, quotes, orders_kanban, finance, sales_reports, stock, maintenance, channels |
 | Loja | R$ 149 por mês (vários usuários com permissão por aba) | tudo do Pro, mais multi_user e public_quote |
 
 Fonte da verdade: `src/lib/plans.ts` (`hasFeature(plan, feature)`). O plano real vem de `tenants.plan` via `getCurrentTenant()` em `src/lib/tenant.ts`. Itens da sidebar que o plano não inclui aparecem com cadeado (Lock), sem esconder o item.
@@ -75,7 +75,7 @@ Mobile first, `rounded-xl`, sombras suaves.
 ## Padrões de interface
 
 - Toda ação que altera dado existente (editar e salvar, excluir, remover, arquivar, mudar status) abre ConfirmDialog; edição mostra o resumo do que muda (ChangesSummary). Criação e cálculo não. Nunca usar botão de confirmação inline.
-- Excluir é sempre soft delete (deleted_at) e todo novo recurso com exclusão deve filtrar deleted_at is null e entrar no Histórico. Nunca devolver calc_input nem calc_result ao navegador, nem no Histórico.
+- Excluir é sempre soft delete (deleted_at) e todo novo recurso com exclusão deve filtrar deleted_at is null e entrar no Histórico. Nunca devolver calc_input nem calc_result ao navegador, nem no Histórico. Tabelas com soft delete: tenant_printers, materials, quotes, quote_items, sales_channels.
 
 ## Proteção da lógica e dos dados do produto
 

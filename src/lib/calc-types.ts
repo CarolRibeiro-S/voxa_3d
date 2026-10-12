@@ -15,6 +15,26 @@ export interface CalcBreakdown {
   fees: number;
 }
 
+// Preço sugerido em um canal de venda (comissão, taxas e taxa fixa já considerados).
+export interface ChannelPrice {
+  id: string;
+  name: string;
+  // false quando comissão, taxas e margem somam 100% ou mais. Os valores ficam em 0.
+  available: boolean;
+  pricePerUnit: number;
+  feesPerUnit: number;
+  profitPerUnit: number;
+  total: number;
+}
+
+// Informação extra de quem imprime várias peças na mesma mesa.
+export interface PlatesInfo {
+  piecesPerPlate: number;
+  platesNeeded: number;
+  totalHours: number;
+  totalMinutes: number;
+}
+
 export type CalcResult =
   | {
       ok: true;
@@ -22,6 +42,10 @@ export type CalcResult =
       total: { price: number; profit: number };
       quantity: number;
       warnings: string[];
+      // null quando o plano não tem canais de venda. Lista vazia quando não há canal cadastrado.
+      channels: ChannelPrice[] | null;
+      // null quando é uma peça por mesa.
+      plates: PlatesInfo | null;
     }
   | { ok: false; message: string };
 
