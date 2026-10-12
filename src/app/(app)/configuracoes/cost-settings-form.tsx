@@ -8,6 +8,7 @@ import {
   type Control,
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConfirmSaveDialog } from "@/components/ui/confirm-save-dialog";
@@ -21,8 +22,10 @@ import {
   SUM_FIELDS,
   type CostSettingsValues,
 } from "@/lib/cost-settings";
-import { formatBRL, formatMoneyDigits, formatPercent } from "@/lib/format";
+import { ENERGY_GROUP_LABEL, type EnergyDistributor, type EnergyGroup } from "@/lib/energy-schema";
+import { formatBRL, formatDate, formatMoneyDigits, formatPercent } from "@/lib/format";
 import type { CostSettings } from "@/types/database";
+import { EnergyPicker, type EnergyPick } from "./energy-picker";
 import {
   saveCostSettings,
   simulatePriceAction,
@@ -30,7 +33,8 @@ import {
 } from "./actions";
 
 type FormControl = Control<CostSettingsValues, unknown, CostSettingsValues>;
-type FieldName = keyof CostSettingsValues;
+// Campos numéricos do formulário (os de distribuidora e grupo têm tratamento próprio).
+type FieldName = Exclude<keyof CostSettingsValues, "energy_distributor_id" | "energy_tariff_group">;
 
 // Ao mudar um destes campos, a soma precisa ser revalidada nos outros.
 const SUM_DEPS = [...SUM_FIELDS];
@@ -120,6 +124,8 @@ function PercentField({
 function toFormValues(s: CostSettings): CostSettingsValues {
   return {
     energy_kwh_brl: s.energy_kwh_brl,
+    energy_distributor_id: s.energy_distributor_id,
+    energy_tariff_group: s.energy_tariff_group,
     labor_hour_brl: s.labor_hour_brl,
     packaging_default_brl: s.packaging_default_brl,
     failure_rate_pct: Math.round(s.failure_rate_pct),
@@ -132,6 +138,12 @@ function toFormValues(s: CostSettings): CostSettingsValues {
 
 export function CostSettingsForm({ settings }: { settings: CostSettings }) {
   const [saved, setSaved] = useState(false);
+  // Nomes das distribuidoras já vistas nesta tela (o catálogo só é consultado ao abrir o painel).
+  const [names, setNames] = useState<Record<string, EnergyDistributor>>({});
+  // Valor da tarifa escolhida, para saber se a pessoa ajustou o valor à mão depois.
+  const [referenceKwh, setReferenceKwh] = useState<number | null>(
+    settings.energy_distributor_id ? settings.energy_kwh_brl : null,
+  );
   const [exampleCost, setExampleCost] = useState(10);
   const [simResult, setSimResult] = useState<SimulationResult | null>(null);
   const [simPending, startSim] = useTransition();
@@ -151,6 +163,18 @@ export function CostSettingsForm({ settings }: { settings: CostSettings }) {
     formState: { isDirty, isValid },
   } = form;
 
+  const rememberDistributors = (list: EnergyDistributor[]) =>
+    setNames((current) => {
+      const next = { ...current };
+      for (const d of list) next[d.id] = d;
+      return next;
+    });
+  const distributorName = (id: string | null | undefined) => {
+    if (!id) return "";
+    const d = names[id];
+    return d ? `${d.name} (${d.state})` : "Distribuidora salva";
+  };
+
   const brl = (v: unknown) => formatBRL(Number(v ?? 0));
   const pct = (v: unknown) => `${formatPercent(Number(v ?? 0))}%`;
 
@@ -163,6 +187,16 @@ export function CostSettingsForm({ settings }: { settings: CostSettings }) {
         name: "energy_kwh_brl",
         label: "Energia",
         format: (v) => `R$ ${formatMoneyDigits(Number(v ?? 0), 4)}/kWh`,
+      },
+      {
+        name: "energy_distributor_id",
+        label: "Distribuidora de energia",
+        format: (v) => distributorName(v as string | null),
+      },
+      {
+        name: "energy_tariff_group",
+        label: "Tipo de ligação",
+        format: (v) => (v ? ENERGY_GROUP_LABEL[v as EnergyGroup] : ""),
       },
       { name: "labor_hour_brl", label: "Valor da sua hora de trabalho", format: (v) => `${brl(v)}/hora` },
       { name: "packaging_default_brl", label: "Embalagem padrão por pedido", format: brl },
@@ -214,6 +248,26 @@ export function CostSettingsForm({ settings }: { settings: CostSettings }) {
   }, [exampleCost, failurePct, marginPct, marketplacePct, paymentPct, taxPct]);
   const sumTooHigh = sumCents >= 10_000;
 
+  const pickedId = v.energy_distributor_id ?? null;
+  const pickedGroup = v.energy_tariff_group ?? null;
+  const round4 = (n: number) => Math.round(n * 10_000) / 10_000;
+  const adjustedByHand =
+    pickedId !== null &&
+    referenceKwh !== null &&
+    round4(v.energy_kwh_brl ?? 0) !== round4(referenceKwh);
+  const savedSelection =
+    pickedId === settings.energy_distributor_id && pickedGroup === settings.energy_tariff_group;
+
+  // "Usar este valor": preenche o campo e guarda distribuidora e grupo, sem salvar.
+  function applyTariff(pick: EnergyPick) {
+    const options = { shouldDirty: true, shouldValidate: true } as const;
+    form.setValue("energy_kwh_brl", pick.kwhBrl, options);
+    form.setValue("energy_distributor_id", pick.distributor.id, options);
+    form.setValue("energy_tariff_group", pick.group, options);
+    rememberDistributors([pick.distributor]);
+    setReferenceKwh(pick.kwhBrl);
+  }
+
   return (
     <Card>
       <h2 className="text-lg font-extrabold">Custos e margens</h2>
@@ -231,15 +285,34 @@ export function CostSettingsForm({ settings }: { settings: CostSettings }) {
             Custos do dia a dia
           </h3>
           <div className="grid gap-4 md:grid-cols-2">
-            <MoneyField
-              control={control}
-              name="energy_kwh_brl"
-              label="Energia"
-              help="Veja na sua conta de luz o valor do kWh, com impostos"
-              decimals={4}
-              max={9999.9999}
-              suffix="/kWh"
-            />
+            <div>
+              <MoneyField
+                control={control}
+                name="energy_kwh_brl"
+                label="Energia"
+                help="Veja na sua conta de luz o valor do kWh, com impostos"
+                decimals={4}
+                max={9999.9999}
+                suffix="/kWh"
+              />
+              <EnergyPicker
+                distributorId={pickedId}
+                group={pickedGroup}
+                onApply={applyTariff}
+                onDistributorsLoaded={rememberDistributors}
+              />
+              {pickedId && pickedGroup && (
+                <p className="mt-2 flex flex-wrap items-center gap-2 text-xs text-tinta/60">
+                  <span>
+                    Tarifa: {distributorName(pickedId)}, grupo {pickedGroup},{" "}
+                    {savedSelection
+                      ? `em ${formatDate(settings.updated_at)}`
+                      : "ainda não salva"}
+                  </span>
+                  {adjustedByHand && <Badge>Ajustado manualmente</Badge>}
+                </p>
+              )}
+            </div>
             <MoneyField
               control={control}
               name="labor_hour_brl"

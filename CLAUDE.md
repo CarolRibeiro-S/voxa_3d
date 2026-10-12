@@ -90,3 +90,4 @@ Mobile first, `rounded-xl`, sombras suaves.
 - Exportações (CSV e PDF) só de dados do próprio tenant.
 - Orçamento mostrado ao cliente final exibe só o preço final, sem detalhamento.
 - Todo cálculo de orçamento chama public.calc_check_limit antes de calcular (limite de 300 por hora por usuário e tipo).
+- Tarifas de energia: consulta só por Server Action, uma por vez, via energy_list_distributors e energy_get_tariff, com limite por hora. Nunca listar nem exportar todas as tarifas.

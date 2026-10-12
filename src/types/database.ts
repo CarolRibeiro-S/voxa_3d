@@ -26,6 +26,8 @@ export interface TenantMember {
 export interface CostSettings {
   tenant_id: string;
   energy_kwh_brl: number;
+  energy_distributor_id: string | null;
+  energy_tariff_group: "B1" | "B3" | null;
   labor_hour_brl: number;
   failure_rate_pct: number;
   default_margin_pct: number;
@@ -205,4 +207,22 @@ export interface AuditLogRow {
   reverted_at: string | null;
   reverted_by: string | null;
   created_at: string;
+}
+
+// Retorno de public.energy_list_distributors(): lista de distribuidoras.
+export interface EnergyDistributorRpcItem {
+  id: string;
+  name: string;
+  state: string;
+}
+
+// Retorno de public.energy_get_tariff(p_distributor_id, p_group).
+export interface EnergyTariffRpc {
+  distributor_name: string;
+  state: string;
+  tariff_group: "B1" | "B3";
+  kwh_brl: number;
+  valid_to: string | null;
+  expired: boolean;
+  estimated_taxes: boolean;
 }

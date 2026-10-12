@@ -51,6 +51,8 @@ export async function getCostSettings(
   return {
     tenant_id: data.tenant_id,
     energy_kwh_brl: Number(data.energy_kwh_brl),
+    energy_distributor_id: (data.energy_distributor_id as string | null) ?? null,
+    energy_tariff_group: (data.energy_tariff_group as "B1" | "B3" | null) ?? null,
     labor_hour_brl: Number(data.labor_hour_brl),
     failure_rate_pct: Number(data.failure_rate_pct),
     default_margin_pct: Number(data.default_margin_pct),

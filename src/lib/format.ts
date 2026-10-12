@@ -124,3 +124,8 @@ export function formatDateTime(value: Date | string | number): string {
     timeZone: "America/Sao_Paulo",
   }).format(new Date(value));
 }
+
+// 1.1023 vira "R$ 1,1023" (sempre quatro casas decimais).
+export function formatKwh(value: number): string {
+  return `R$ ${formatMoneyDigits(value, 4)}`;
+}

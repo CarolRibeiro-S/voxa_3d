@@ -4,6 +4,14 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { costSettingsSchema, type CostSettingsValues } from "@/lib/cost-settings";
 import {
+  energyTariffInputSchema,
+  type EnergyActionResult,
+  type EnergyDistributor,
+  type EnergyTariff,
+  type EnergyTariffInput,
+} from "@/lib/energy-schema";
+import { EnergyLookupError, getEnergyTariff, listEnergyDistributors } from "@/lib/energy";
+import {
   tenantProfileSchema,
   type TenantProfileInput,
 } from "@/lib/tenant-profile-schema";
@@ -50,6 +58,55 @@ export async function saveCostSettings(
 
   revalidatePath("/configuracoes");
   return { ok: true, savedAt: Date.now() };
+}
+
+// ---- Tarifa de energia (catálogo global, uma consulta por vez) ----
+
+const ENERGY_LIMIT_ERROR = "Muitas consultas de tarifa nesta hora. Tente novamente em alguns minutos.";
+const ENERGY_ERROR = "Não foi possível consultar a tarifa agora. Tente de novo.";
+
+function energyFailure(error: unknown): { ok: false; error: string } {
+  if (error instanceof EnergyLookupError) {
+    if (error.kind === "limit") return { ok: false, error: ENERGY_LIMIT_ERROR };
+    if (error.kind === "not_found") {
+      return { ok: false, error: "Não encontramos a tarifa para essa distribuidora e tipo de ligação." };
+    }
+  }
+  return { ok: false, error: ENERGY_ERROR };
+}
+
+// Só é chamada quando a pessoa abre o painel de seleção, nunca no carregamento da página.
+export async function listEnergyDistributorsAction(): Promise<
+  EnergyActionResult<EnergyDistributor[]>
+> {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: "Sua sessão expirou. Entre novamente." };
+  const current = await getCurrentTenant();
+  if (!current) return { ok: false, error: "Não encontramos a sua conta." };
+
+  try {
+    return { ok: true, data: await listEnergyDistributors() };
+  } catch (error) {
+    return energyFailure(error);
+  }
+}
+
+export async function getEnergyTariffAction(
+  input: EnergyTariffInput,
+): Promise<EnergyActionResult<EnergyTariff>> {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: "Sua sessão expirou. Entre novamente." };
+  const current = await getCurrentTenant();
+  if (!current) return { ok: false, error: "Não encontramos a sua conta." };
+
+  const parsed = energyTariffInputSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: ENERGY_ERROR };
+
+  try {
+    return { ok: true, data: await getEnergyTariff(parsed.data.distributorId, parsed.data.group) };
+  } catch (error) {
+    return energyFailure(error);
+  }
 }
 
 // ---- Dados do orçamento (topo do PDF) ----

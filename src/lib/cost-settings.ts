@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { energyDistributorIdSchema, energyGroupSchema } from "@/lib/energy-schema";
 
 const INVALID = "Informe um número válido";
 
@@ -44,6 +45,10 @@ export function sumPercentCents(
 export const costSettingsSchema = z
   .object({
     energy_kwh_brl: money(9999.9999),
+    // Distribuidora e tipo de ligação escolhidos no seletor de tarifa (opcionais). O valor em
+    // R$/kWh acima é sempre o que a pessoa confirmou, pode ser digitado à mão.
+    energy_distributor_id: energyDistributorIdSchema.nullish(),
+    energy_tariff_group: energyGroupSchema.nullish(),
     labor_hour_brl: money(999999.99),
     packaging_default_brl: money(999999.99),
     failure_rate_pct: z
