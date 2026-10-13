@@ -1,5 +1,7 @@
 "use server";
 
+import { capabilityDenied } from "@/lib/permissions-server";
+import { writeBlockedMessage } from "@/lib/billing/guard";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
@@ -55,6 +57,9 @@ export async function listCatalogPrinters(): Promise<
 > {
   const current = await requireTenant();
   if (!current) return { ok: false, message: SESSION_ERROR };
+  // Permissão da função (Dono, Gerente ou Operador), conferida no servidor.
+  const denied = await capabilityDenied("manage_catalog");
+  if (denied) return { ok: false, message: denied };
 
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("catalog_list_printers");
@@ -117,6 +122,9 @@ export async function getCatalogPrinter(
 > {
   const current = await requireTenant();
   if (!current) return { ok: false, message: SESSION_ERROR };
+  // Permissão da função (Dono, Gerente ou Operador), conferida no servidor.
+  const denied = await capabilityDenied("manage_catalog");
+  if (denied) return { ok: false, message: denied };
 
   const lookup = lookupSchema.safeParse({ brand, model });
   if (!lookup.success) {
@@ -172,6 +180,12 @@ export async function savePrinter(
 ): Promise<ActionResult> {
   const current = await requireTenant();
   if (!current) return { ok: false, message: SESSION_ERROR };
+  // Permissão da função (Dono, Gerente ou Operador), conferida no servidor.
+  const denied = await capabilityDenied("manage_catalog");
+  if (denied) return { ok: false, message: denied };
+  // Teste vencido sem assinatura: modo leitura, nada é criado nem editado.
+  const blocked = await writeBlockedMessage();
+  if (blocked) return { ok: false, message: blocked };
   if (id !== null && !UUID.test(id)) return { ok: false, message: GENERIC_ERROR };
   if (catalogId !== null && !UUID.test(catalogId)) {
     return { ok: false, message: GENERIC_ERROR };
@@ -236,6 +250,12 @@ export async function savePrinter(
 export async function togglePrinterActive(id: string): Promise<ActionResult> {
   const current = await requireTenant();
   if (!current) return { ok: false, message: SESSION_ERROR };
+  // Permissão da função (Dono, Gerente ou Operador), conferida no servidor.
+  const denied = await capabilityDenied("manage_catalog");
+  if (denied) return { ok: false, message: denied };
+  // Teste vencido sem assinatura: modo leitura, nada é criado nem editado.
+  const blocked = await writeBlockedMessage();
+  if (blocked) return { ok: false, message: blocked };
   if (!UUID.test(id)) return { ok: false, message: GENERIC_ERROR };
 
   const supabase = await createClient();
@@ -272,6 +292,12 @@ export async function togglePrinterActive(id: string): Promise<ActionResult> {
 export async function deletePrinter(id: string): Promise<ActionResult> {
   const current = await requireTenant();
   if (!current) return { ok: false, message: SESSION_ERROR };
+  // Permissão da função (Dono, Gerente ou Operador), conferida no servidor.
+  const denied = await capabilityDenied("manage_catalog");
+  if (denied) return { ok: false, message: denied };
+  // Teste vencido sem assinatura: modo leitura, nada é criado nem editado.
+  const blocked = await writeBlockedMessage();
+  if (blocked) return { ok: false, message: blocked };
   if (!UUID.test(id)) return { ok: false, message: GENERIC_ERROR };
 
   // Exclusão é soft delete: a máquina vai para a Lixeira e pode ser restaurada em Histórico.

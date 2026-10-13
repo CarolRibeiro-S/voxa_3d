@@ -13,6 +13,7 @@ import { Loader2, Plus, Trash2 } from "lucide-react";
 import { IntegerField, SectionTitle, SELECT_CLASS } from "@/components/calculator/calc-fields";
 import { ExtrasList } from "@/components/calculator/extras-list";
 import { PlateSwitch } from "@/components/calculator/plate-switch";
+import { AutoTour } from "@/components/tour/tour-provider";
 import { ResultPanel } from "@/components/calculator/result-panel";
 import { SaveToQuote } from "@/components/calculator/save-to-quote";
 import { useCalcRunner } from "@/components/calculator/use-calc-runner";
@@ -93,6 +94,7 @@ export function FdmCalculator({ printers, materials, defaults }: FdmCalculatorPr
                 {(a11y) => (
                   <select
                     {...register("printer_id")}
+                    data-tour="calc-maquina"
                     id={a11y.id}
                     aria-invalid={a11y.invalid || undefined}
                     aria-describedby={a11y.describedBy}
@@ -128,6 +130,7 @@ export function FdmCalculator({ printers, materials, defaults }: FdmCalculatorPr
                         {(a11y) => (
                           <select
                             {...register(`materials.${index}.material_id`)}
+                            data-tour="calc-material"
                             id={a11y.id}
                             aria-invalid={a11y.invalid || undefined}
                             aria-describedby={a11y.describedBy}
@@ -211,6 +214,7 @@ export function FdmCalculator({ printers, materials, defaults }: FdmCalculatorPr
                           onClick={() => materialLines.remove(index)}
                           disabled={materialLines.fields.length === 1}
                           aria-label={`Remover material ${index + 1}`}
+title={`Remover material ${index + 1}`}
                         >
                           <Trash2 size={16} aria-hidden="true" />
                           <span className="sm:hidden">Remover</span>
@@ -300,7 +304,7 @@ export function FdmCalculator({ printers, materials, defaults }: FdmCalculatorPr
           </Card>
 
           <div>
-            <Button type="submit" size="lg" disabled={pending} className="w-full sm:w-auto">
+            <Button type="submit" size="lg" disabled={pending} className="w-full sm:w-auto" data-tour="calc-calcular">
               {pending && <Loader2 size={18} className="animate-spin" aria-hidden="true" />}
               {pending ? "Calculando..." : "Calcular preço"}
             </Button>
@@ -308,6 +312,7 @@ export function FdmCalculator({ printers, materials, defaults }: FdmCalculatorPr
         </form>
       </FormProvider>
 
+      <AutoTour id="calculadora-fdm" />
       <ResultPanel
         result={result}
         error={error}

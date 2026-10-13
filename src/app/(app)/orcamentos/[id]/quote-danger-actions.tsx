@@ -29,6 +29,7 @@ export function QuoteDangerActions({
     <div className="flex flex-wrap items-center gap-3">
       {hasItems ? (
         <a
+          data-tour="orc-pdf"
           href={`/orcamentos/${quoteId}/pdf`}
           download={`orcamento-${formatQuoteNumber(number)}.pdf`}
           className={buttonClasses({})}
@@ -38,7 +39,7 @@ export function QuoteDangerActions({
         </a>
       ) : (
         <div>
-          <Button disabled aria-describedby="pdf-hint">
+          <Button disabled aria-describedby="pdf-hint" data-tour="orc-pdf">
             <Download size={16} aria-hidden="true" />
             Baixar PDF
           </Button>

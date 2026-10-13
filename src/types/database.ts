@@ -2,7 +2,7 @@
 import type { Plan } from "@/lib/plans";
 
 export type SubscriptionStatus = "trialing" | "active" | "past_due" | "canceled";
-export type MemberRole = "owner" | "admin" | "member";
+export type MemberRole = "owner" | "manager" | "operator";
 
 export interface Tenant {
   id: string;
@@ -253,3 +253,82 @@ export type SalesChannelInsert = Pick<
   | "is_active"
   | "position"
 >;
+
+export type OrderKind = "client" | "stock";
+export type OrderStatus = "placed" | "printing" | "ready" | "shipped" | "delivered" | "canceled";
+export type PaymentStatus = "pending" | "paid";
+
+// number, total e status_changed_at são mantidos pelo banco (gatilhos): nunca enviar number nem
+// total no insert. Sem permissão de delete.
+export interface Order {
+  id: string;
+  tenant_id: string;
+  number: number;
+  kind: OrderKind;
+  status: OrderStatus;
+  client_name: string | null;
+  client_phone: string | null;
+  due_date: string | null;
+  payment_status: PaymentStatus;
+  paid_at: string | null;
+  tracking_code: string | null;
+  notes: string | null;
+  quote_id: string | null;
+  total: number;
+  status_changed_at: string;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export type OrderInsert = Pick<Order, "tenant_id" | "kind"> &
+  Partial<
+    Pick<
+      Order,
+      | "status"
+      | "client_name"
+      | "client_phone"
+      | "due_date"
+      | "payment_status"
+      | "paid_at"
+      | "tracking_code"
+      | "notes"
+      | "quote_id"
+    >
+  >;
+
+export interface OrderItem {
+  id: string;
+  tenant_id: string;
+  order_id: string;
+  // Item do orçamento de onde veio (nulo nos itens manuais).
+  quote_item_id: string | null;
+  description: string;
+  quantity: number;
+  unit_price: number;
+  line_total: number;
+  deleted_at: string | null;
+  created_at: string;
+}
+
+// Itens do pedido nunca guardam calc_input nem calc_result. created_at é enviado de propósito:
+// os itens de um mesmo pedido são ordenados por created_at e depois por id.
+export type OrderItemInsert = Pick<
+  OrderItem,
+  "tenant_id" | "order_id" | "description" | "quantity" | "unit_price" | "line_total" | "created_at"
+> & { quote_item_id?: string | null };
+
+// Convite para entrar em uma loja. Só o hash do token é guardado, nunca o token.
+export interface TenantInvite {
+  id: string;
+  tenant_id: string;
+  email: string;
+  role: "manager" | "operator";
+  token_hash: string;
+  invited_by: string | null;
+  expires_at: string;
+  accepted_at: string | null;
+  accepted_by: string | null;
+  revoked_at: string | null;
+  created_at: string;
+}

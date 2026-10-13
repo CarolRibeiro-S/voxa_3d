@@ -4,6 +4,7 @@ import { getQuote, getQuoteItems } from "@/lib/quotes";
 import { formatQuoteNumber, UUID_PATTERN } from "@/lib/quotes-schema";
 import { renderQuotePdf } from "@/lib/quote-pdf";
 import { getCurrentTenant, getCurrentUser, getTenantProfile } from "@/lib/tenant";
+import { capabilityDenied } from "@/lib/permissions-server";
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
 
@@ -17,6 +18,9 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/orcamentos/[id]
   if (!current || !hasFeature(current.tenant.plan, "quotes") || !UUID_PATTERN.test(id)) {
     return new Response("Não encontrado", { status: 404, headers: NO_STORE });
   }
+
+  const denied = await capabilityDenied("view_quotes");
+  if (denied) return new Response(denied, { status: 403, headers: NO_STORE });
 
   try {
     // Só do próprio tenant (RLS). As consultas não trazem os dados de cálculo.

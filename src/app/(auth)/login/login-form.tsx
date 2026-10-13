@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 import { loginSchema, translateAuthError, type LoginValues } from "@/lib/auth";
 
-export function LoginForm() {
+export function LoginForm({ next = "/painel" }: { next?: string }) {
   const router = useRouter();
   const [formError, setFormError] = useState<string | null>(null);
   const {
@@ -30,7 +30,7 @@ export function LoginForm() {
       setFormError(translateAuthError(error.message));
       return;
     }
-    router.replace("/painel");
+    router.replace(next);
     router.refresh();
   }
 
@@ -74,11 +74,11 @@ export function LoginForm() {
         </Button>
       </form>
       <OrDivider />
-      <GoogleButton />
+      <GoogleButton next={next} />
       <p className="mt-6 text-center text-sm text-tinta/70">
         Ainda não tem conta?{" "}
         <Link
-          href="/cadastro"
+          href={next === "/painel" ? "/cadastro" : `/cadastro?next=${encodeURIComponent(next)}`}
           className="font-semibold text-violeta hover:text-violeta-escuro"
         >
           Criar conta

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import {
   Controller,
   useForm,
@@ -18,6 +19,7 @@ import { PercentInput } from "@/components/ui/percent-input";
 import { useConfirmSubmit } from "@/hooks/use-confirm-submit";
 import {
   costSettingsSchema,
+  costSettingsToValues,
   sumPercentCents,
   SUM_FIELDS,
   type CostSettingsValues,
@@ -119,23 +121,6 @@ function PercentField({
   );
 }
 
-// Margem e taxa de falha só aceitam inteiros: se o banco tiver decimais
-// nesses dois, arredonda ao carregar. Os outros percentuais mantêm 2 casas.
-function toFormValues(s: CostSettings): CostSettingsValues {
-  return {
-    energy_kwh_brl: s.energy_kwh_brl,
-    energy_distributor_id: s.energy_distributor_id,
-    energy_tariff_group: s.energy_tariff_group,
-    labor_hour_brl: s.labor_hour_brl,
-    packaging_default_brl: s.packaging_default_brl,
-    failure_rate_pct: Math.round(s.failure_rate_pct),
-    default_margin_pct: Math.round(s.default_margin_pct),
-    marketplace_fee_pct: s.marketplace_fee_pct,
-    payment_fee_pct: s.payment_fee_pct,
-    tax_pct: s.tax_pct,
-  };
-}
-
 export function CostSettingsForm({ settings }: { settings: CostSettings }) {
   const [saved, setSaved] = useState(false);
   // Nomes das distribuidoras já vistas nesta tela (o catálogo só é consultado ao abrir o painel).
@@ -151,7 +136,7 @@ export function CostSettingsForm({ settings }: { settings: CostSettings }) {
 
   const form = useForm<CostSettingsValues, unknown, CostSettingsValues>({
     resolver: zodResolver(costSettingsSchema),
-    defaultValues: toFormValues(settings),
+    defaultValues: costSettingsToValues(settings),
     // Valida a cada digitação. Sem isso o padrão é validar só ao enviar.
     mode: "onChange",
   });
@@ -184,7 +169,7 @@ export function CostSettingsForm({ settings }: { settings: CostSettings }) {
     form,
     fields: [
       {
-        name: "energy_kwh_brl",
+        name: "energy_kwh_brl", numeric: true,
         label: "Energia",
         format: (v) => `R$ ${formatMoneyDigits(Number(v ?? 0), 4)}/kWh`,
       },
@@ -198,13 +183,13 @@ export function CostSettingsForm({ settings }: { settings: CostSettings }) {
         label: "Tipo de ligação",
         format: (v) => (v ? ENERGY_GROUP_LABEL[v as EnergyGroup] : ""),
       },
-      { name: "labor_hour_brl", label: "Valor da sua hora de trabalho", format: (v) => `${brl(v)}/hora` },
-      { name: "packaging_default_brl", label: "Embalagem padrão por pedido", format: brl },
-      { name: "failure_rate_pct", label: "Taxa de falha", format: pct },
-      { name: "default_margin_pct", label: "Margem de lucro desejada", format: pct },
-      { name: "marketplace_fee_pct", label: "Taxa do marketplace", format: pct },
-      { name: "payment_fee_pct", label: "Taxa de pagamento", format: pct },
-      { name: "tax_pct", label: "Imposto sobre a venda", format: pct },
+      { name: "labor_hour_brl", numeric: true, label: "Valor da sua hora de trabalho", format: (v) => `${brl(v)}/hora` },
+      { name: "packaging_default_brl", numeric: true, label: "Embalagem padrão por pedido", format: brl },
+      { name: "failure_rate_pct", numeric: true, label: "Taxa de falha", format: pct },
+      { name: "default_margin_pct", numeric: true, label: "Margem de lucro desejada", format: pct },
+      { name: "marketplace_fee_pct", numeric: true, label: "Taxa do marketplace", format: pct },
+      { name: "payment_fee_pct", numeric: true, label: "Taxa de pagamento", format: pct },
+      { name: "tax_pct", numeric: true, label: "Imposto sobre a venda", format: pct },
     ],
     save: async (values) => {
       const result = await saveCostSettings(null, values);
@@ -269,7 +254,7 @@ export function CostSettingsForm({ settings }: { settings: CostSettings }) {
   }
 
   return (
-    <Card>
+    <Card data-tour="config-custos">
       <h2 className="text-lg font-extrabold">Custos e margens</h2>
       <p className="mt-1 text-sm text-tinta/70">
         Estes valores serão usados nas calculadoras e nos orçamentos.
@@ -313,14 +298,22 @@ export function CostSettingsForm({ settings }: { settings: CostSettings }) {
                 </p>
               )}
             </div>
-            <MoneyField
-              control={control}
-              name="labor_hour_brl"
-              label="Valor da sua hora de trabalho"
-              help="Quanto vale uma hora do seu tempo"
-              max={999999.99}
-              suffix="/hora"
-            />
+            <div data-tour="config-hora">
+              <MoneyField
+                control={control}
+                name="labor_hour_brl"
+                label="Valor da sua hora de trabalho"
+                help="Quanto vale uma hora do seu tempo"
+                max={999999.99}
+                suffix="/hora"
+              />
+              <Link
+                href="/painel#valor-hora"
+                className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold leading-tight text-violeta hover:text-violeta-escuro focus-visible:outline-2 focus-visible:outline-violeta"
+              >
+                Não sabe quanto cobrar? Calcule o valor da sua hora
+              </Link>
+            </div>
             <MoneyField
               control={control}
               name="packaging_default_brl"

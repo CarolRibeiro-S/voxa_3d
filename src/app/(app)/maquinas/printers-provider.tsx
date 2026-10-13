@@ -35,7 +35,7 @@ export function usePrinterDialog() {
 export function AddPrinterButton({ label = "Adicionar máquina" }: { label?: string }) {
   const { openNew } = usePrinterDialog();
   return (
-    <Button onClick={openNew}>
+    <Button onClick={openNew} data-tour="maquinas-adicionar">
       <Plus size={16} aria-hidden="true" />
       {label}
     </Button>

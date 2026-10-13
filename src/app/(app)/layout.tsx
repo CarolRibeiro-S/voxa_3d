@@ -3,7 +3,9 @@ import { AppShell } from "@/components/layout/app-shell";
 import { Logo } from "@/components/layout/logo";
 import { SignOutButton } from "@/components/layout/sign-out-button";
 import { Card } from "@/components/ui/card";
-import { getCurrentTenant, getCurrentUser } from "@/lib/tenant";
+import { TourProvider } from "@/components/tour/tour-provider";
+import { trialDaysLeft } from "@/lib/billing/labels";
+import { getCurrentTenant, getCurrentUser, getMemberStores } from "@/lib/tenant";
 
 export default async function AppLayout({
   children,
@@ -30,5 +32,21 @@ export default async function AppLayout({
   }
 
   // TODO: tratar teste expirado e assinatura cancelada na etapa de cobrança.
-  return <AppShell plan={current.tenant.plan}>{children}</AppShell>;
+  const { access } = current;
+  const stores = await getMemberStores();
+  return (
+    <TourProvider userId={user.id} plan={current.tenant.plan} role={current.role}>
+    <AppShell
+      plan={current.tenant.plan}
+      role={current.role}
+      stores={stores}
+      activeTenantId={current.tenant.id}
+      accessStatus={access.status}
+      accessNotice={access.notice}
+      trialDaysLeft={access.status === "trialing" ? trialDaysLeft(access.trialEndsAt) : null}
+    >
+      {children}
+    </AppShell>
+    </TourProvider>
+  );
 }

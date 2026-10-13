@@ -1,4 +1,4 @@
-import { forwardRef, type ButtonHTMLAttributes } from "react";
+import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 const variants = {
@@ -8,10 +8,12 @@ const variants = {
   dark: "bg-tinta text-white hover:bg-tinta/90",
 } as const;
 
+// Botão com texto nunca tem altura fixa: min-h-11 (44px) no celular, min-h-10 no desktop, com
+// padding vertical. O texto pode crescer para uma segunda linha em vez de ser cortado.
 const sizes = {
-  sm: "h-9 px-3 text-sm",
-  md: "h-11 px-5 text-sm",
-  lg: "h-12 px-6 text-base",
+  sm: "min-h-11 px-3 py-2 text-sm md:min-h-10",
+  md: "min-h-11 px-5 py-2 text-sm md:min-h-10",
+  lg: "min-h-12 px-6 py-2.5 text-base",
 } as const;
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -24,7 +26,7 @@ export const buttonClasses = ({
   size = "md",
 }: Pick<ButtonProps, "variant" | "size"> = {}) =>
   cn(
-    "inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-colors disabled:pointer-events-none disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta",
+    "inline-flex items-center justify-center gap-2 rounded-xl text-center font-semibold leading-tight text-balance transition-colors disabled:pointer-events-none disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta [&_svg]:shrink-0",
     variants[variant],
     sizes[size],
   );
@@ -40,3 +42,30 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ),
 );
 Button.displayName = "Button";
+
+export interface IconButtonProps
+  extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "aria-label" | "title" | "children"> {
+  // Texto obrigatório: vira aria-label e title.
+  label: string;
+  variant?: keyof typeof variants;
+  children: ReactNode;
+}
+
+// Botão só com ícone: sempre 44x44px, com aria-label e title.
+export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
+  ({ label, className, variant = "ghost", type = "button", ...props }, ref) => (
+    <button
+      ref={ref}
+      type={type}
+      aria-label={label}
+      title={label}
+      className={cn(
+        buttonClasses({ variant, size: "sm" }),
+        "size-11 min-w-11 shrink-0 p-0",
+        className,
+      )}
+      {...props}
+    />
+  ),
+);
+IconButton.displayName = "IconButton";

@@ -156,10 +156,10 @@ function ChannelForm({
     form,
     fields: [
       { name: "name", label: "Nome" },
-      { name: "commission_pct", label: "Comissão do canal", format: pctText },
-      { name: "fixed_fee_brl", label: "Taxa fixa por venda", format: brlText },
-      { name: "payment_pct", label: "Taxa de pagamento", format: pctText },
-      { name: "tax_pct", label: "Imposto", format: pctText },
+      { name: "commission_pct", numeric: true, label: "Comissão do canal", format: pctText },
+      { name: "fixed_fee_brl", numeric: true, label: "Taxa fixa por venda", format: brlText },
+      { name: "payment_pct", numeric: true, label: "Taxa de pagamento", format: pctText },
+      { name: "tax_pct", numeric: true, label: "Imposto", format: pctText },
     ],
     // O servidor valida o texto digitado de novo, por isso vai o valor cru do formulário.
     save: () =>
@@ -208,7 +208,7 @@ function ChannelForm({
                     key={preset}
                     type="button"
                     onClick={() => setText("name", preset)}
-                    className="min-h-11 rounded-xl border border-violeta/20 bg-white px-3 text-xs font-semibold hover:bg-nevoa focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta"
+                    className="min-h-11 py-2 leading-tight rounded-xl border border-violeta/20 bg-white px-3 text-xs font-semibold hover:bg-nevoa focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta"
                   >
                     {preset}
                   </button>
@@ -366,7 +366,7 @@ export function SalesChannelsCard({
     c.is_active ? <Badge variant="success">Ativo</Badge> : <Badge>Inativo</Badge>;
 
   return (
-    <Card>
+    <Card data-tour="config-canais">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-extrabold">Canais de venda</h2>

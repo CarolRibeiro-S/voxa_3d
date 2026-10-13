@@ -10,7 +10,7 @@ export const PLAN_NAMES: Record<Plan, string> = {
 export type Feature =
   | "calculator"
   | "quotes"
-  | "orders_kanban"
+  | "orders"
   | "finance"
   | "sales_reports"
   | "stock"
@@ -23,7 +23,7 @@ export type Feature =
 const PRO_FEATURES: Feature[] = [
   "calculator",
   "quotes",
-  "orders_kanban",
+  "orders",
   "finance",
   "sales_reports",
   "stock",

@@ -4,13 +4,20 @@ import { hasFeature } from "@/lib/plans";
 import type { ChannelRates } from "@/lib/pricing-core";
 import type { Plan } from "@/lib/plans";
 
-// Canais de venda ativos da conta, na ordem do cadastro. null quando o plano não tem canais.
+export interface LoadedChannels {
+  // null quando o plano não tem canais (ou quando a busca falhou, veja `failed`).
+  list: ChannelRates[] | null;
+  // A busca falhou: diferente de "nenhum canal cadastrado" (lista vazia).
+  failed: boolean;
+}
+
+// Canais de venda ativos da conta, na ordem do cadastro.
 export async function loadChannels(
   supabase: SupabaseClient,
   tenantId: string,
   plan: Plan,
-): Promise<ChannelRates[] | null> {
-  if (!hasFeature(plan, "channels")) return null;
+): Promise<LoadedChannels> {
+  if (!hasFeature(plan, "channels")) return { list: null, failed: false };
 
   const { data, error } = await supabase
     .from("sales_channels")
@@ -22,10 +29,10 @@ export async function loadChannels(
   if (error) {
     // O preço principal não depende dos canais: segue sem a tabela.
     console.error("Erro ao carregar canais de venda:", error.code, error.message);
-    return null;
+    return { list: null, failed: true };
   }
 
-  return (data ?? []).map((row) => ({
+  const list = (data ?? []).map((row) => ({
     id: String(row.id),
     name: String(row.name),
     commission_pct: Number(row.commission_pct),
@@ -33,4 +40,5 @@ export async function loadChannels(
     tax_pct: Number(row.tax_pct),
     fixed_fee_brl: Number(row.fixed_fee_brl),
   }));
+  return { list, failed: false };
 }

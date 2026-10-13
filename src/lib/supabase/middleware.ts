@@ -8,6 +8,11 @@ const PROTECTED_PREFIXES = [
   "/maquinas",
   "/materiais",
   "/configuracoes",
+  "/assinatura",
+  "/usuarios",
+  "/historico",
+  "/calculadora-fdm",
+  "/calculadora-resina",
 ];
 const AUTH_ROUTES = ["/login", "/cadastro"];
 

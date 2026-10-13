@@ -28,7 +28,7 @@ function GoogleIcon() {
   );
 }
 
-export function GoogleButton({ className }: { className?: string }) {
+export function GoogleButton({ className, next = "/painel" }: { className?: string; next?: string }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,7 +39,7 @@ export function GoogleButton({ className }: { className?: string }) {
       const { error } = await createClient().auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=/painel`,
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
         },
       });
       // Em caso de sucesso o navegador é redirecionado para o Google.
@@ -57,7 +57,7 @@ export function GoogleButton({ className }: { className?: string }) {
         onClick={handleClick}
         disabled={loading}
         className={cn(
-          "inline-flex h-11 w-full items-center justify-center gap-3 rounded-xl border border-gray-300 bg-white px-5 text-sm font-semibold text-tinta shadow-sm transition-colors hover:bg-nevoa disabled:pointer-events-none disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta",
+          "inline-flex min-h-11 w-full items-center justify-center gap-3 rounded-xl py-2 text-center leading-tight border border-gray-300 bg-white px-5 text-sm font-semibold text-tinta shadow-sm transition-colors hover:bg-nevoa disabled:pointer-events-none disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta",
         )}
       >
         {loading ? (

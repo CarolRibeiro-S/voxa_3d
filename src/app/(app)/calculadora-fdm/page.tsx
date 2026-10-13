@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { buttonClasses } from "@/components/ui/button";
 import { getMaterials } from "@/lib/materials";
@@ -6,6 +7,7 @@ import { hasFeature } from "@/lib/plans";
 import { getPrinters } from "@/lib/printers";
 import { getCostSettings, getCurrentTenant } from "@/lib/tenant";
 import { FdmCalculator, type SelectOption } from "./fdm-calculator";
+import { guardPage } from "@/lib/permissions-server";
 
 export const metadata = { title: "Calculadora FDM | Voxa3D" };
 
@@ -23,7 +25,11 @@ function Header() {
 export default async function CalculadoraFdmPage() {
   const current = await getCurrentTenant();
   if (!current) return null; // O layout já mostra o erro de conta.
+  guardPage(current.role, "use_calculators");
   const { tenant } = current;
+
+  // Teste vencido sem assinatura: a calculadora fica indisponível até assinar.
+  if (current.access.readOnly) redirect("/assinatura");
 
   if (!hasFeature(tenant.plan, "calculator")) {
     return (

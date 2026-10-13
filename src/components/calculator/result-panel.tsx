@@ -104,7 +104,15 @@ export function ResultPanel({ result, error, stale, pending, actions }: ResultPa
             </dl>
           </Card>
 
-          {result.channels !== null &&
+          {result.channelsError && (
+            <p role="status" className="rounded-xl bg-nevoa p-3 text-xs text-tinta/80">
+              Não foi possível carregar seus canais de venda agora. O preço principal continua
+              correto.
+            </p>
+          )}
+
+          {!result.channelsError &&
+            result.channels !== null &&
             (result.channels.length === 0 ? (
               <p className="rounded-xl bg-nevoa p-3 text-xs text-tinta/80">
                 Cadastre seus canais de venda em{" "}

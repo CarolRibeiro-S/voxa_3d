@@ -175,7 +175,7 @@ function PickerBody({
                 aria-pressed={g === group}
                 onClick={() => chooseGroup(g)}
                 className={cn(
-                  "min-h-11 rounded-xl border px-3 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta",
+                  "min-h-11 py-2 leading-tight rounded-xl border px-3 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta",
                   g === group
                     ? "border-violeta bg-violeta text-white"
                     : "border-violeta/20 bg-white hover:bg-nevoa",
@@ -255,7 +255,7 @@ export function EnergyPicker(props: EnergyPickerProps) {
 
   return (
     <div className="mt-2">
-      <Button variant="secondary" size="sm" className="min-h-11" onClick={() => setOpen(true)}>
+      <Button variant="secondary" size="sm" className="min-h-11" onClick={() => setOpen(true)} data-tour="config-energia">
         <Zap size={16} aria-hidden="true" />
         Preencher pela minha distribuidora
       </Button>

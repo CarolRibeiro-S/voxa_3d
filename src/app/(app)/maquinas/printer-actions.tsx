@@ -36,7 +36,7 @@ export function PrinterActions({ printer }: { printer: TenantPrinter }) {
   const text = action ? texts[action] : null;
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div data-tour="maquinas-acoes" className="flex flex-wrap items-center gap-2">
       <Button variant="secondary" size="sm" className={btn} onClick={() => openEdit(printer)}>
         Editar
       </Button>

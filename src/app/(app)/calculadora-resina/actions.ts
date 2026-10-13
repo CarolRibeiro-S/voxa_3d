@@ -1,5 +1,7 @@
 "use server";
 
+import { capabilityDenied } from "@/lib/permissions-server";
+import { writeBlockedMessage } from "@/lib/billing/guard";
 import type { CalcResult } from "@/lib/calc-types";
 import { computeResin } from "@/lib/calc/resin";
 import { resinCalcSchema, type ResinCalcInput } from "@/lib/resin-calc-schema";
@@ -17,6 +19,12 @@ export async function calculateResin(input: ResinCalcInput): Promise<CalculateRe
   // O tenant vem da sessão, nunca do formulário.
   const current = await getCurrentTenant();
   if (!current) return { ok: false, message: "Não encontramos a sua conta." };
+  // Permissão da função (Dono, Gerente ou Operador), conferida no servidor.
+  const denied = await capabilityDenied("use_calculators");
+  if (denied) return { ok: false, message: denied };
+  // Teste vencido sem assinatura: modo leitura, nada é criado nem editado.
+  const blocked = await writeBlockedMessage();
+  if (blocked) return { ok: false, message: blocked };
   if (!hasFeature(current.tenant.plan, "calculator")) {
     return { ok: false, message: "A calculadora não está disponível no seu plano." };
   }

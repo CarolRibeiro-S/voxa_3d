@@ -1,5 +1,7 @@
 "use server";
 
+import { capabilityDenied } from "@/lib/permissions-server";
+import { writeBlockedMessage } from "@/lib/billing/guard";
 import { revalidatePath } from "next/cache";
 import { hasFeature } from "@/lib/plans";
 import {
@@ -29,6 +31,12 @@ async function guard(): Promise<Guard> {
   if (!hasFeature(current.tenant.plan, "channels")) {
     return { ok: false, message: "Os canais de venda estão disponíveis nos planos Pro e Loja." };
   }
+  // Permissão da função (Dono, Gerente ou Operador), conferida no servidor.
+  const denied = await capabilityDenied("manage_settings");
+  if (denied) return { ok: false, message: denied };
+  // Teste vencido sem assinatura: modo leitura, nada é criado nem editado.
+  const blocked = await writeBlockedMessage();
+  if (blocked) return { ok: false, message: blocked };
   return { ok: true, tenantId: current.tenant.id };
 }
 

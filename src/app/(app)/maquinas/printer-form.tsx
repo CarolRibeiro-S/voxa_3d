@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { IntegerInput } from "@/components/ui/integer-input";
 import { MoneyInput } from "@/components/ui/money-input";
 import { Textarea } from "@/components/ui/textarea";
+import { AutoTour } from "@/components/tour/tour-provider";
 import { useConfirmSubmit } from "@/hooks/use-confirm-submit";
 import { formatBRL } from "@/lib/format";
 import {
@@ -110,19 +111,19 @@ export function PrinterForm({
       { name: "brand", label: "Marca" },
       { name: "model", label: "Modelo" },
       { name: "nickname", label: "Apelido" },
-      { name: "power_w", label: "Consumo médio", format: (v) => (v == null ? "" : `${v} W`) },
+      { name: "power_w", numeric: true, label: "Consumo médio", format: (v) => (v == null ? "" : `${v} W`) },
       {
-        name: "price_brl",
+        name: "price_brl", numeric: true,
         label: "Preço da máquina",
         format: (v) => (v == null ? "" : formatBRL(Number(v))),
       },
       {
-        name: "lifespan_hours",
+        name: "lifespan_hours", numeric: true,
         label: "Vida útil",
         format: (v) => (v == null ? "" : `${v} h`),
       },
       {
-        name: "maintenance_brl_per_hour",
+        name: "maintenance_brl_per_hour", numeric: true,
         label: "Manutenção por hora",
         format: (v) => `${formatBRL(Number(v ?? 0))}/hora`,
       },
@@ -182,7 +183,7 @@ export function PrinterForm({
         {lockIdentity ? (
           <div>
             <p className="mb-1.5 text-sm font-medium text-tinta">Tipo</p>
-            <p className="flex min-h-11 items-center rounded-xl bg-nevoa px-4 text-sm font-semibold">
+            <p className="flex min-h-11 py-2 leading-tight items-center rounded-xl bg-nevoa px-4 text-sm font-semibold">
               {PRINTER_TYPE_LABEL[printer?.type ?? catalog?.type ?? "fdm"]}
             </p>
           </div>
@@ -279,7 +280,7 @@ export function PrinterForm({
             >
               {(a) => (
                 <>
-                  <IntegerInput
+                  <IntegerInput data-tour="maquina-potencia"
                     ref={field.ref}
                     id={a.id}
                     name={field.name}
@@ -320,7 +321,7 @@ export function PrinterForm({
               error={fieldState.error?.message}
             >
               {(a) => (
-                <MoneyInput
+                <MoneyInput data-tour="maquina-preco"
                   ref={field.ref}
                   id={a.id}
                   name={field.name}
@@ -348,7 +349,7 @@ export function PrinterForm({
               error={fieldState.error?.message}
             >
               {(a) => (
-                <IntegerInput
+                <IntegerInput data-tour="maquina-vida"
                   ref={field.ref}
                   id={a.id}
                   name={field.name}
@@ -376,7 +377,7 @@ export function PrinterForm({
               error={fieldState.error?.message}
             >
               {(a) => (
-                <MoneyInput
+                <MoneyInput data-tour="maquina-manutencao"
                   ref={field.ref}
                   id={a.id}
                   name={field.name}
@@ -440,6 +441,7 @@ export function PrinterForm({
         </Button>
       </div>
       <ConfirmSaveDialog {...confirmed.dialog} />
+      <AutoTour id="maquina-form" />
     </form>
   );
 }

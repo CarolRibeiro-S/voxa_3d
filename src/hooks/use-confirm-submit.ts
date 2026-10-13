@@ -13,18 +13,26 @@ export interface ChangeField<T extends FieldValues> {
   // Formata o valor como o formulário o mostra (BRL, percentual, status traduzido).
   format?: (value: unknown) => string;
   sensitive?: boolean;
+  // Campo numérico: a comparação ignora o formato digitado (20 e 20,00 são iguais).
+  numeric?: boolean;
 }
 
-// Compara ignorando espaços nas pontas e tratando vazio, null e undefined como iguais.
-function normalize(value: unknown): string {
+// Compara ignorando espaços nas pontas e tratando vazio, null e undefined como iguais. Em campo
+// numérico, "20", "20,00" e 20 são o mesmo valor (aceita vírgula e ponto).
+export function normalizeForCompare(value: unknown, numeric = false): string {
   if (value === null || value === undefined) return "";
+  if (numeric) {
+    const n = typeof value === "number" ? value : Number(String(value).trim().replace(",", "."));
+    if (String(value).trim() === "") return "";
+    if (Number.isFinite(n)) return String(Math.round(n * 1_000_000) / 1_000_000);
+  }
   if (typeof value === "string") return value.trim();
   if (typeof value === "object") return JSON.stringify(value);
   return String(value);
 }
 
 function defaultFormat(value: unknown): string {
-  return normalize(value);
+  return normalizeForCompare(value);
 }
 
 interface UseConfirmSubmitOptions<TInput extends FieldValues, TOutput> {
@@ -60,7 +68,12 @@ export function useConfirmSubmit<TInput extends FieldValues, TOutput>({
     const current = form.getValues();
     const list: ChangeItem[] = [];
     for (const field of fields) {
-      if (normalize(baseline[field.name]) === normalize(current[field.name])) continue;
+      if (
+        normalizeForCompare(baseline[field.name], field.numeric) ===
+        normalizeForCompare(current[field.name], field.numeric)
+      ) {
+        continue;
+      }
       const format = field.format ?? defaultFormat;
       list.push({
         label: field.label,

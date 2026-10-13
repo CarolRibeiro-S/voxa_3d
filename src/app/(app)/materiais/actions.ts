@@ -1,5 +1,7 @@
 "use server";
 
+import { capabilityDenied } from "@/lib/permissions-server";
+import { writeBlockedMessage } from "@/lib/billing/guard";
 import { revalidatePath } from "next/cache";
 import { materialSchema, type MaterialValues } from "@/lib/materials-schema";
 import { createClient } from "@/lib/supabase/server";
@@ -25,6 +27,12 @@ export async function saveMaterial(
 ): Promise<ActionResult> {
   const current = await requireTenant();
   if (!current) return { ok: false, message: "Sua sessão expirou. Entre novamente." };
+  // Permissão da função (Dono, Gerente ou Operador), conferida no servidor.
+  const denied = await capabilityDenied("manage_catalog");
+  if (denied) return { ok: false, message: denied };
+  // Teste vencido sem assinatura: modo leitura, nada é criado nem editado.
+  const blocked = await writeBlockedMessage();
+  if (blocked) return { ok: false, message: blocked };
   if (id !== null && !UUID.test(id)) return { ok: false, message: GENERIC_ERROR };
 
   // A entrada do cliente nunca é confiável: valida de novo no servidor.
@@ -83,6 +91,12 @@ export async function setMaterialActive(
 ): Promise<ActionResult> {
   const current = await requireTenant();
   if (!current) return { ok: false, message: "Sua sessão expirou. Entre novamente." };
+  // Permissão da função (Dono, Gerente ou Operador), conferida no servidor.
+  const denied = await capabilityDenied("manage_catalog");
+  if (denied) return { ok: false, message: denied };
+  // Teste vencido sem assinatura: modo leitura, nada é criado nem editado.
+  const blocked = await writeBlockedMessage();
+  if (blocked) return { ok: false, message: blocked };
   if (!UUID.test(id)) return { ok: false, message: GENERIC_ERROR };
 
   const supabase = await createClient();

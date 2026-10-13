@@ -10,6 +10,7 @@ import { FormField } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { IntegerInput } from "@/components/ui/integer-input";
 import { MoneyInput } from "@/components/ui/money-input";
+import { AutoTour } from "@/components/tour/tour-provider";
 import { useConfirmSubmit } from "@/hooks/use-confirm-submit";
 import { formatBRL } from "@/lib/format";
 import {
@@ -77,9 +78,9 @@ export function MaterialForm({
       { name: "brand", label: "Marca" },
       { name: "material_type", label: "Tipo de material" },
       { name: "color", label: "Cor" },
-      { name: "price_brl", label: "Preço pago", format: (v) => formatBRL(Number(v ?? 0)) },
-      { name: "package_size", label: "Tamanho da embalagem", format: unit },
-      { name: "stock_remaining", label: "Estoque restante", format: unit },
+      { name: "price_brl", numeric: true, label: "Preço pago", format: (v) => formatBRL(Number(v ?? 0)) },
+      { name: "package_size", numeric: true, label: "Tamanho da embalagem", format: unit },
+      { name: "stock_remaining", numeric: true, label: "Estoque restante", format: unit },
     ],
     save: (values) => saveMaterial(material?.id ?? null, values),
     onSaved: onDone,
@@ -122,7 +123,7 @@ export function MaterialForm({
       <div className="flex-1 space-y-4 overflow-y-auto p-4 md:p-6">
         <div>
           <p className="mb-1.5 text-sm font-medium text-tinta">Tipo</p>
-          <p className="flex min-h-11 items-center rounded-xl bg-nevoa px-4 text-sm font-semibold">
+          <p className="flex min-h-11 py-2 leading-tight items-center rounded-xl bg-nevoa px-4 text-sm font-semibold">
             {info.label}
           </p>
         </div>
@@ -204,7 +205,7 @@ export function MaterialForm({
           render={({ field, fieldState }) => (
             <FormField id="price_brl" label="Preço pago" error={fieldState.error?.message}>
               {(a) => (
-                <MoneyInput
+                <MoneyInput data-tour="material-preco"
                   ref={field.ref}
                   id={a.id}
                   name={field.name}
@@ -231,7 +232,7 @@ export function MaterialForm({
               error={fieldState.error?.message}
             >
               {(a) => (
-                <IntegerInput
+                <IntegerInput data-tour="material-tamanho"
                   ref={field.ref}
                   id={a.id}
                   name={field.name}
@@ -274,7 +275,7 @@ export function MaterialForm({
           )}
         />
 
-        <div className="rounded-xl bg-nevoa p-4" aria-live="polite">
+        <div data-tour="material-custo" className="rounded-xl bg-nevoa p-4" aria-live="polite">
           {cost === null ? (
             <p className="text-sm text-tinta/70">Informe o tamanho para ver o custo</p>
           ) : (
@@ -322,6 +323,7 @@ export function MaterialForm({
         </Button>
       </div>
       <ConfirmSaveDialog {...confirmed.dialog} />
+      <AutoTour id="material-form" />
     </form>
   );
 }

@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 import { signupSchema, translateAuthError, type SignupValues } from "@/lib/auth";
 
-export function SignupForm() {
+export function SignupForm({ next = "/painel" }: { next?: string }) {
   const router = useRouter();
   const [formError, setFormError] = useState<string | null>(null);
   const [needsConfirmation, setNeedsConfirmation] = useState(false);
@@ -29,14 +29,16 @@ export function SignupForm() {
     const { data, error } = await createClient().auth.signUp({
       email,
       password,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+      },
     });
     if (error) {
       setFormError(translateAuthError(error.message));
       return;
     }
     if (data.session) {
-      router.replace("/painel");
+      router.replace(next);
       router.refresh();
       return;
     }
@@ -117,11 +119,11 @@ export function SignupForm() {
         </Button>
       </form>
       <OrDivider />
-      <GoogleButton />
+      <GoogleButton next={next} />
       <p className="mt-6 text-center text-sm text-tinta/70">
         Já tem conta?{" "}
         <Link
-          href="/login"
+          href={next === "/painel" ? "/login" : `/login?next=${encodeURIComponent(next)}`}
           className="font-semibold text-violeta hover:text-violeta-escuro"
         >
           Entrar

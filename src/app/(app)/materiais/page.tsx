@@ -2,7 +2,10 @@ import Link from "next/link";
 import { getMaterials } from "@/lib/materials";
 import type { MaterialKind } from "@/types/database";
 import { cn } from "@/lib/utils";
+import { AutoTour } from "@/components/tour/tour-provider";
 import { MaterialsView } from "./materials-view";
+import { guardPage } from "@/lib/permissions-server";
+import { getCurrentTenant } from "@/lib/tenant";
 
 export const metadata = { title: "Materiais | Voxa3D" };
 
@@ -16,6 +19,9 @@ export default async function MateriaisPage({
 }: {
   searchParams: Promise<{ tipo?: string; arquivados?: string }>;
 }) {
+  const current = await getCurrentTenant();
+  if (!current) return null; // O layout já mostra o erro de conta.
+  guardPage(current.role, "view_catalog");
   const params = await searchParams;
   const tab = TABS.find((t) => t.slug === params.tipo) ?? TABS[0];
   const includeArchived = params.arquivados === "1";
@@ -35,7 +41,7 @@ export default async function MateriaisPage({
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <nav aria-label="Tipo de material" className="flex gap-2">
+        <nav aria-label="Tipo de material" data-tour="materiais-tipos" className="flex gap-2">
           {TABS.map((t) => (
             <Link
               key={t.slug}
@@ -54,7 +60,7 @@ export default async function MateriaisPage({
         </nav>
         <Link
           href={href(tab.slug, !includeArchived)}
-          className="flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-medium text-violeta hover:text-violeta-escuro"
+          className="flex min-h-11 py-2 leading-tight items-center gap-2 rounded-xl px-3 text-sm font-medium text-violeta hover:text-violeta-escuro"
         >
           <span
             aria-hidden="true"
@@ -72,6 +78,7 @@ export default async function MateriaisPage({
       </div>
 
       <MaterialsView key={tab.kind} kind={tab.kind} materials={materials} />
+      <AutoTour id="materiais" />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { formatBRL, formatContact, formatDate } from "@/lib/format";
+import { getOrderForQuote } from "@/lib/orders-data";
 import { hasFeature } from "@/lib/plans";
 import { getQuote, getQuoteItems } from "@/lib/quotes";
 import {
@@ -13,10 +14,13 @@ import {
 } from "@/lib/quotes-schema";
 import { getCurrentTenant } from "@/lib/tenant";
 import { QuoteStatusBadge } from "../quote-status";
+import { AutoTour } from "@/components/tour/tour-provider";
 import { CustomerForm } from "./customer-form";
+import { GenerateOrderButton } from "./generate-order-button";
 import { QuoteDangerActions } from "./quote-danger-actions";
 import { QuoteItems } from "./quote-items";
 import { StatusActions } from "./status-actions";
+import { guardPage } from "@/lib/permissions-server";
 
 export const metadata = { title: "Orçamento | Voxa3D" };
 
@@ -26,12 +30,17 @@ export default async function OrcamentoPage({ params }: { params: Promise<{ id: 
 
   const current = await getCurrentTenant();
   if (!current) return null; // O layout já mostra o erro de conta.
+  guardPage(current.role, "view_quotes");
   if (!hasFeature(current.tenant.plan, "quotes")) notFound();
 
   // A consulta já filtra pelo tenant da sessão: orçamento de outra conta não aparece.
   const quote = await getQuote(id);
   if (!quote) notFound();
   const items = await getQuoteItems(id);
+
+  // Orçamento aprovado pode virar pedido. Se já virou, mostra o pedido existente.
+  const canOrder = quote.status === "approved" && hasFeature(current.tenant.plan, "orders");
+  const existingOrder = canOrder ? await getOrderForQuote(quote.id) : null;
 
   const locked = isQuoteLocked(quote.status);
 
@@ -78,7 +87,7 @@ export default async function OrcamentoPage({ params }: { params: Promise<{ id: 
         </p>
       )}
 
-      <Card>
+      <Card data-tour="orc-cliente">
         <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-violeta-escuro">
           Cliente
         </h2>
@@ -94,14 +103,23 @@ export default async function OrcamentoPage({ params }: { params: Promise<{ id: 
         />
       </Card>
 
-      <Card>
+      <Card data-tour="orc-status">
         <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-violeta-escuro">
           Status
         </h2>
         <StatusActions quoteId={quote.id} status={quote.status} />
       </Card>
 
-      <Card>
+      {canOrder && (
+        <Card data-tour="orc-pedido">
+          <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-violeta-escuro">
+            Pedido
+          </h2>
+          <GenerateOrderButton quoteId={quote.id} existing={existingOrder} />
+        </Card>
+      )}
+
+      <Card data-tour="orc-itens">
         <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-violeta-escuro">
           Itens
         </h2>
@@ -121,6 +139,7 @@ export default async function OrcamentoPage({ params }: { params: Promise<{ id: 
         customerName={quote.customer_name}
         hasItems={items.length > 0}
       />
+      <AutoTour id="orcamento-detalhe" />
     </div>
   );
 }

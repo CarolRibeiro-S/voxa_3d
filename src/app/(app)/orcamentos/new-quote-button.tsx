@@ -79,7 +79,7 @@ export function NewQuoteButton({ label = "Novo orçamento" }: { label?: string }
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button onClick={() => setOpen(true)}>
+      <Button onClick={() => setOpen(true)} data-tour="orcamentos-novo">
         <Plus size={16} aria-hidden="true" />
         {label}
       </Button>

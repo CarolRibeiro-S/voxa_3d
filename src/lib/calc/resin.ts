@@ -42,6 +42,7 @@ export function computeResinPrice(
   costById: Map<string, number>,
   settings: ResinSettings,
   channels: ChannelRates[] | null = null,
+  channelsFailed = false,
 ): CalcResult {
   const powerW = toNumber(printer.power_w);
   const printerPrice = toNumber(printer.price_brl);
@@ -92,6 +93,7 @@ export function computeResinPrice(
       channels === null
         ? null
         : computeChannelPrices(priced.costBeforeFees, v.margin_pct, v.quantity, channels),
+    channelsError: channelsFailed,
     plates: platesInfo(v),
     warnings: buildWarnings({
       energyKwhBrl: settings.energy_kwh_brl,
@@ -122,7 +124,7 @@ export async function computeResin(input: ResinCalcInput): Promise<CalcResult> {
   const supabase = await createClient();
   const materialIds = v.materials.map((line) => line.material_id);
 
-  const [printerRes, materialsRes, settings, channels] = await Promise.all([
+  const [printerRes, materialsRes, settings, loadedChannels] = await Promise.all([
     supabase
       .from("tenant_printers")
       .select("power_w, price_brl, lifespan_hours, maintenance_brl_per_hour")
@@ -154,5 +156,5 @@ export async function computeResin(input: ResinCalcInput): Promise<CalcResult> {
     return { ok: false, message: CALC_GENERIC_ERROR };
   }
 
-  return computeResinPrice(v, printer, costById, settings, channels);
+  return computeResinPrice(v, printer, costById, settings, loadedChannels.list, loadedChannels.failed);
 }

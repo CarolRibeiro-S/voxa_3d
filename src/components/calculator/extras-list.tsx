@@ -80,6 +80,7 @@ export function ExtrasList({ hint }: { hint?: ReactNode }) {
                   className="w-full sm:w-11 sm:px-0"
                   onClick={() => lines.remove(index)}
                   aria-label={`Remover custo extra ${index + 1}`}
+title={`Remover custo extra ${index + 1}`}
                 >
                   <Trash2 size={16} aria-hidden="true" />
                   <span className="sm:hidden">Remover</span>

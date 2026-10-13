@@ -44,3 +44,4 @@ next-env.d.ts
 # dados brutos da ANEEL (arquivos grandes, nao versionar)
 /tarifas*.csv
 /orcamento-*.pdf
+.env.local

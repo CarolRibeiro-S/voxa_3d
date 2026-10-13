@@ -44,6 +44,8 @@ export type CalcResult =
       warnings: string[];
       // null quando o plano não tem canais de venda. Lista vazia quando não há canal cadastrado.
       channels: ChannelPrice[] | null;
+      // true quando a busca dos canais falhou (diferente de "nenhum canal cadastrado").
+      channelsError: boolean;
       // null quando é uma peça por mesa.
       plates: PlatesInfo | null;
     }

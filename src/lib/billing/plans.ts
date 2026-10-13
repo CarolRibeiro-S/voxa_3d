@@ -4,10 +4,10 @@ import { createClient } from "@/lib/supabase/server";
 // Catálogo de planos, períodos e preços. Tudo vem do banco: nenhum preço fixo no código.
 // Valores em centavos inteiros. O navegador nunca decide valor.
 //
-// Nomes de colunas usados (ajuste só aqui se o banco tiver outros):
-//   plans:        code, name, monthly_price_cents
-//   plan_periods: code, months, discount_pct, launch_discount_pct
-//   launch_config: lock_months (opcional, padrão 12)
+// Colunas (migration 017):
+//   plans:         code, name, monthly_price_cents, active
+//   plan_periods:  code, months, discount_pct, launch_discount_pct, sort_order
+//   launch_config: id (boolean, linha única), quota, price_months, reservation_minutes, active
 
 export interface PlanCatalogEntry {
   code: string;
@@ -76,9 +76,15 @@ const text = (value: unknown): string | null =>
 export async function getBillingCatalog(): Promise<BillingCatalog> {
   const supabase = await createClient();
   const [plansRes, periodsRes, launchRes] = await Promise.all([
-    supabase.from("plans").select("*"),
-    supabase.from("plan_periods").select("*"),
-    supabase.from("launch_config").select("*").limit(1),
+    supabase
+      .from("plans")
+      .select("code, name, monthly_price_cents, active")
+      .eq("active", true),
+    supabase
+      .from("plan_periods")
+      .select("code, months, discount_pct, launch_discount_pct, sort_order")
+      .order("sort_order", { ascending: true }),
+    supabase.from("launch_config").select("price_months").limit(1),
   ]);
   if (plansRes.error || periodsRes.error) {
     console.error(
@@ -111,22 +117,10 @@ export async function getBillingCatalog(): Promise<BillingCatalog> {
       });
     }
   }
-  periods.sort((a, b) => a.months - b.months);
 
-  const lock = num(launchRes.data?.[0]?.lock_months);
-  return { plans, periods, launchLockMonths: lock && lock > 0 ? lock : 12 };
-}
-
-// Vagas restantes com preço de lançamento. Função pública do banco.
-export async function getLaunchRemaining(): Promise<number> {
-  const supabase = await createClient();
-  const { data, error } = await supabase.rpc("launch_remaining");
-  if (error) {
-    console.error("Erro em launch_remaining:", error.code, error.message);
-    return 0;
-  }
-  const n = num(Array.isArray(data) ? data[0] : data);
-  return n === null ? 0 : Math.max(0, Math.floor(n));
+  // Duração do preço de lançamento (padrão 12 meses).
+  const priceMonths = num(launchRes.data?.[0]?.price_months);
+  return { plans, periods, launchLockMonths: priceMonths && priceMonths > 0 ? priceMonths : 12 };
 }
 
 // Rótulo do período pela duração, para não depender do código usado no banco.

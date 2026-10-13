@@ -2,11 +2,19 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { formatBRL, formatDate, formatMoneyDigits, formatPercent, formatPhone } from "@/lib/format";
+import {
+  canOrderTransition,
+  ORDER_STATUS_LABEL,
+  orderStatusSchema,
+  PAYMENT_LABEL,
+} from "@/lib/orders";
 import { PRINTER_TYPE_LABEL } from "@/lib/printers-schema";
 import { canTransition, isQuoteLocked, QUOTE_STATUS_LABEL, UUID_PATTERN } from "@/lib/quotes-schema";
+import { cache } from "react";
+import { createAdminClient, hasAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant, getCurrentUser } from "@/lib/tenant";
-import type { AuditAction, QuoteStatus } from "@/types/database";
+import type { AuditAction, OrderKind, OrderStatus, PaymentStatus, QuoteStatus } from "@/types/database";
 
 // Histórico de alterações e Lixeira. O log é preenchido por gatilho no banco: o código só lê,
 // e desfaz com UPDATE nas tabelas de negócio. Só campos de negócio visíveis ao dono passam daqui.
@@ -18,9 +26,11 @@ export type AuditEntity =
   | "quote_items"
   | "cost_settings"
   | "tenant_profile"
-  | "sales_channels";
+  | "sales_channels"
+  | "orders"
+  | "order_items";
 
-export type EntityGroup = "all" | "machines" | "materials" | "quotes" | "settings";
+export type EntityGroup = "all" | "machines" | "materials" | "quotes" | "orders" | "settings";
 
 interface EntityInfo {
   label: string;
@@ -53,6 +63,15 @@ export const ENTITIES: Record<AuditEntity, EntityInfo> = {
     label: "Item de orçamento", article: "o", noun: "item de orçamento", group: "quotes",
     softDelete: true, hasUpdatedAt: false, singleton: false, showSummary: true,
   },
+  orders: {
+    label: "Pedido", article: "o", noun: "pedido", group: "orders",
+    softDelete: true, hasUpdatedAt: true, singleton: false, showSummary: true,
+  },
+  // Os itens do pedido não são editados nem excluídos um a um: só aparecem no histórico.
+  order_items: {
+    label: "Item de pedido", article: "o", noun: "item de pedido", group: "orders",
+    softDelete: false, hasUpdatedAt: false, singleton: false, showSummary: true,
+  },
   sales_channels: {
     label: "Canal de venda", article: "o", noun: "canal de venda", group: "settings",
     softDelete: true, hasUpdatedAt: true, singleton: false, showSummary: true,
@@ -72,6 +91,7 @@ export const ENTITY_GROUPS: Record<EntityGroup, { label: string; entities: Audit
   machines: { label: "Máquinas", entities: ["tenant_printers"] },
   materials: { label: "Materiais", entities: ["materials"] },
   quotes: { label: "Orçamentos", entities: ["quotes", "quote_items"] },
+  orders: { label: "Pedidos", entities: ["orders", "order_items"] },
   settings: {
     label: "Configurações",
     entities: ["cost_settings", "tenant_profile", "sales_channels"],
@@ -82,7 +102,7 @@ const SOFT_DELETE_ENTITIES = (Object.keys(ENTITIES) as AuditEntity[]).filter(
   (e) => ENTITIES[e].softDelete,
 );
 
-type Kind = "text" | "int" | "number" | "brl" | "brl4" | "pct" | "date" | "status" | "bool" | "phone" | "printerType";
+type Kind = "orderStatus" | "payment" | "text" | "int" | "number" | "brl" | "brl4" | "pct" | "date" | "status" | "bool" | "phone" | "printerType";
 
 interface FieldSpec {
   label: string;
@@ -129,6 +149,21 @@ export const ALLOWED_FIELDS: Record<AuditEntity, Record<string, FieldSpec>> = {
     description: { label: "Descrição", kind: "text" },
     quantity: { label: "Quantidade", kind: "int" },
     unit_price_brl: { label: "Valor unitário", kind: "brl" },
+  },
+  // Observações do pedido ficam de fora de propósito.
+  orders: {
+    status: { label: "Status", kind: "orderStatus" },
+    client_name: { label: "Cliente", kind: "text" },
+    client_phone: { label: "Telefone", kind: "phone" },
+    due_date: { label: "Prazo de entrega", kind: "date" },
+    payment_status: { label: "Pagamento", kind: "payment" },
+    tracking_code: { label: "Código de rastreio", kind: "text" },
+  },
+  order_items: {
+    description: { label: "Descrição", kind: "text" },
+    quantity: { label: "Quantidade", kind: "int" },
+    unit_price: { label: "Valor unitário", kind: "brl" },
+    line_total: { label: "Total da linha", kind: "brl" },
   },
   sales_channels: {
     name: { label: "Nome", kind: "text" },
@@ -178,6 +213,10 @@ function formatValue(spec: FieldSpec, value: unknown): string {
       return value === true ? (spec.trueLabel ?? "Sim") : (spec.falseLabel ?? "Não");
     case "phone":
       return formatPhone(String(value));
+    case "orderStatus":
+      return ORDER_STATUS_LABEL[value as OrderStatus] ?? String(value);
+    case "payment":
+      return PAYMENT_LABEL[value as PaymentStatus] ?? String(value);
     case "printerType":
       return PRINTER_TYPE_LABEL[value as keyof typeof PRINTER_TYPE_LABEL] ?? String(value);
     default:
@@ -226,6 +265,8 @@ export interface ActivityEntry {
   entityLabel: string;
   phrase: string;
   at: string;
+  // Quem fez: "você", o nome ou e-mail da pessoa, "Usuário removido" ou "Sistema".
+  actor: string;
   fields: { label: string; from: string; to: string }[];
   reverted: boolean;
   canUndo: boolean;
@@ -265,6 +306,9 @@ function phraseFor(
     }
   }
   if (action === "restore") suffix = " da Lixeira";
+  if (entity === "orders" && action === "update" && changes.some((c) => c.field === "status")) {
+    verb = "moveu";
+  }
 
   const name = info.showSummary && summary ? ` ${summary}` : "";
   return `${actor} ${verb} ${info.article} ${info.noun}${name}${suffix}`;
@@ -308,17 +352,55 @@ export async function listActivity(filters: {
     created_at: string;
   }[];
   const hasMore = rows.length > ACTIVITY_PAGE_SIZE;
+  const page = rows.slice(0, ACTIVITY_PAGE_SIZE);
+  return { entries: buildEntries(page, user.id, await resolveAuthors(page, user.id)), hasMore };
+}
 
+interface LogRow {
+  id: string;
+  entity: string;
+  action: AuditAction;
+  summary: string | null;
+  changes: unknown;
+  actor_id: string | null;
+  reverted_at: string | null;
+  created_at: string;
+}
+
+// Nome ou e-mail de quem fez a alteração (cliente admin, uma busca por autor por requisição).
+const authorLabel = cache(async (actorId: string): Promise<string> => {
+  if (!hasAdminClient()) return "Outro membro";
+  try {
+    const { data, error } = await createAdminClient().auth.admin.getUserById(actorId);
+    const found = data?.user;
+    if (error || !found) return "Usuário removido";
+    const meta = found.user_metadata as Record<string, unknown> | undefined;
+    const name = [meta?.full_name, meta?.name].find((v): v is string => typeof v === "string" && v.trim() !== "");
+    return name ?? found.email ?? "Usuário removido";
+  } catch {
+    return "Outro membro";
+  }
+});
+
+async function resolveAuthors(rows: LogRow[], userId: string): Promise<Map<string, string>> {
+  const ids = [...new Set(rows.map((r) => r.actor_id).filter((id): id is string => id !== null))];
+  const labels = await Promise.all(ids.map((id) => (id === userId ? "você" : authorLabel(id))));
+  return new Map(ids.map((id, index) => [id, labels[index]]));
+}
+
+function buildEntries(rows: LogRow[], userId: string, authors: Map<string, string>): ActivityEntry[] {
   const entries: ActivityEntry[] = [];
-  for (const row of rows.slice(0, ACTIVITY_PAGE_SIZE)) {
+  for (const row of rows) {
     if (!isEntity(row.entity)) continue;
+    // A criação dos itens já está na criação do pedido.
+    if (row.entity === "order_items" && row.action === "create") continue;
     const info = ENTITIES[row.entity];
     const changes = row.action === "update" ? allowedChanges(row.entity, row.changes) : [];
     // Atualizações sem nenhum campo de negócio (por exemplo, só valores gerados) não aparecem.
     if (row.action === "update" && changes.length === 0) continue;
 
     const onlyState = changes.length === 1 && changes[0].field === "is_active";
-    const actor = row.actor_id === user.id ? "Você" : "Outro membro";
+    const actor = row.actor_id === userId ? "Você" : "Outro membro";
     const undoable =
       row.reverted_at === null &&
       ((row.action === "update" && changes.length > 0) ||
@@ -330,6 +412,7 @@ export async function listActivity(filters: {
       entityLabel: info.label,
       phrase: phraseFor(actor, row.entity, row.action, row.summary, changes),
       at: row.created_at,
+      actor: row.actor_id === null ? "Sistema" : (authors.get(row.actor_id) ?? "Usuário removido"),
       fields: onlyState
         ? []
         : changes.map((c) => ({
@@ -341,7 +424,27 @@ export async function listActivity(filters: {
       canUndo: undoable,
     });
   }
-  return { entries, hasMore };
+  return entries;
+}
+
+// Histórico de um único registro (por exemplo, um pedido), do mais recente para o mais antigo.
+export async function listEntityActivity(entity: AuditEntity, entityId: string): Promise<ActivityEntry[]> {
+  const current = await getCurrentTenant();
+  const user = await getCurrentUser();
+  if (!current || !user || !UUID_PATTERN.test(entityId)) return [];
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("audit_log")
+    .select("id, entity, action, summary, changes, actor_id, reverted_at, created_at")
+    .eq("tenant_id", current.tenant.id)
+    .eq("entity", entity)
+    .eq("entity_id", entityId)
+    .order("created_at", { ascending: false })
+    .limit(ACTIVITY_PAGE_SIZE);
+  if (error) throw new Error("Não foi possível carregar o histórico.");
+  const rows = (data ?? []) as LogRow[];
+  return buildEntries(rows, user.id, await resolveAuthors(rows, user.id));
 }
 
 // ---- Lixeira ----
@@ -363,7 +466,7 @@ export async function listTrash(): Promise<TrashEntry[]> {
   const tenantId = current.tenant.id;
   const supabase = await createClient();
 
-  const [printers, materials, quotes, items, channels] = await Promise.all([
+  const [printers, materials, quotes, items, channels, orders] = await Promise.all([
     supabase
       .from("tenant_printers")
       .select("id, nickname, brand, model, deleted_at")
@@ -394,8 +497,21 @@ export async function listTrash(): Promise<TrashEntry[]> {
       .eq("tenant_id", tenantId)
       .not("deleted_at", "is", null)
       .limit(100),
+    supabase
+      .from("orders")
+      .select("id, number, kind, client_name, deleted_at")
+      .eq("tenant_id", tenantId)
+      .not("deleted_at", "is", null)
+      .limit(100),
   ]);
-  if (printers.error || materials.error || quotes.error || items.error || channels.error) {
+  if (
+    printers.error ||
+    materials.error ||
+    quotes.error ||
+    items.error ||
+    channels.error ||
+    orders.error
+  ) {
     throw new Error("Não foi possível carregar a lixeira.");
   }
 
@@ -435,6 +551,13 @@ export async function listTrash(): Promise<TrashEntry[]> {
       name: `${String(r.number).padStart(4, "0")} ${r.customer_name}`,
       deletedAt: String(r.deleted_at),
     })),
+    ...(orders.data ?? []).map((r) => ({
+      entity: "orders" as const,
+      id: String(r.id),
+      typeLabel: ENTITIES.orders.label,
+      name: `#${r.number} ${r.kind === "stock" ? "Estoque" : (r.client_name ?? "")}`.trim(),
+      deletedAt: String(r.deleted_at),
+    })),
     ...(channels.data ?? []).map((r) => ({
       entity: "sales_channels" as const,
       id: String(r.id),
@@ -464,6 +587,7 @@ const GENERIC_ERROR = "Não foi possível concluir. Tente novamente.";
 const CHANGED_ERROR = "Este item mudou depois dessa alteração, por isso não dá para desfazer.";
 const LOCKED_ERROR = "Este orçamento está bloqueado para edição. Reabra para editar.";
 const DUPLICATE_ERROR = "Já existe um item com esse nome. Renomeie o ativo e tente de novo.";
+const ORDER_LOCKED_ERROR = "Este pedido está bloqueado para edição. Reabra para editar.";
 const NOT_UNDOABLE_ERROR = "Esta ação não pode ser desfeita.";
 
 type Db = SupabaseClient;
@@ -516,7 +640,14 @@ export async function restoreEntity(
     .eq("tenant_id", tenantId)
     .not("deleted_at", "is", null)
     .select("id");
-  if (error) return failure("restaurar", error);
+  if (error) {
+    // Já existe outro pedido ativo gerado do mesmo orçamento.
+    if (entity === "orders" && error.code === "23505") {
+      console.error("Erro no histórico (restaurar pedido):", error.code, error.message);
+      return { ok: false, message: "Já existe um pedido ativo para este orçamento." };
+    }
+    return failure("restaurar", error);
+  }
   if (!data || data.length === 0) return { ok: false, message: GENERIC_ERROR };
   return { ok: true };
 }
@@ -622,6 +753,38 @@ async function revertUpdate(
       patch.approved_at = target === "approved" ? new Date().toISOString() : null;
     } else if (isQuoteLocked(quoteStatus)) {
       return { ok: false, message: LOCKED_ERROR };
+    }
+  }
+
+  // Regras de pedido: o status só volta por uma transição válida e pedido entregue ou cancelado
+  // fica bloqueado para edição.
+  if (entity === "orders") {
+    const { data: order } = await db
+      .from("orders")
+      .select("kind, status")
+      .eq("id", entityId)
+      .eq("tenant_id", tenantId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (!order) return { ok: false, message: CHANGED_ERROR };
+    const kind = order.kind as OrderKind;
+    const status = order.status as OrderStatus;
+
+    if ("status" in patch) {
+      const target = orderStatusSchema.safeParse(patch.status);
+      if (!target.success || !canOrderTransition(kind, status, target.data)) {
+        return { ok: false, message: CHANGED_ERROR };
+      }
+      patch.status_changed_at = new Date().toISOString();
+    } else if (
+      status === "canceled" ||
+      // Entregue só aceita mudança de pagamento, que é independente do status.
+      (status === "delivered" && !changes.every((c) => c.field === "payment_status"))
+    ) {
+      return { ok: false, message: ORDER_LOCKED_ERROR };
+    }
+    if ("payment_status" in patch) {
+      patch.paid_at = patch.payment_status === "paid" ? new Date().toISOString() : null;
     }
   }
 

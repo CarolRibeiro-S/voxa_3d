@@ -5,8 +5,11 @@ import { getPrinters } from "@/lib/printers";
 import { PRINTER_TYPE_LABEL } from "@/lib/printers-schema";
 import { cn } from "@/lib/utils";
 import type { TenantPrinter } from "@/types/database";
+import { AutoTour } from "@/components/tour/tour-provider";
 import { PrinterActions } from "./printer-actions";
 import { AddPrinterButton, PrintersProvider } from "./printers-provider";
+import { guardPage } from "@/lib/permissions-server";
+import { getCurrentTenant } from "@/lib/tenant";
 
 export const metadata = { title: "Máquinas | Voxa3D" };
 
@@ -67,6 +70,9 @@ function PrinterCard({ printer }: { printer: TenantPrinter }) {
 }
 
 export default async function MaquinasPage() {
+  const current = await getCurrentTenant();
+  if (!current) return null; // O layout já mostra o erro de conta.
+  guardPage(current.role, "view_catalog");
   const printers = await getPrinters();
   const active = printers.filter((p) => p.is_active);
   const inactive = printers.filter((p) => !p.is_active);
@@ -97,7 +103,7 @@ export default async function MaquinasPage() {
         ) : (
           <>
             {active.length > 0 && (
-              <ul className="grid gap-4 md:grid-cols-2">
+              <ul data-tour="maquinas-lista" className="grid gap-4 md:grid-cols-2">
                 {active.map((p) => (
                   <li key={p.id}>
                     <PrinterCard printer={p} />
@@ -123,6 +129,7 @@ export default async function MaquinasPage() {
           </>
         )}
       </div>
+      <AutoTour id="maquinas" />
     </PrintersProvider>
   );
 }

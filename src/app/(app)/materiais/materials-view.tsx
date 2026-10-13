@@ -122,7 +122,7 @@ export function MaterialsView({
   return (
     <>
       <div className="flex justify-end">
-        <Button onClick={() => open(null)}>
+        <Button onClick={() => open(null)} data-tour="materiais-novo">
           <Plus size={16} aria-hidden="true" />
           Novo material
         </Button>
@@ -142,7 +142,7 @@ export function MaterialsView({
         </Card>
       ) : (
         <>
-          <div className="hidden overflow-x-auto rounded-xl border border-violeta/10 bg-white shadow-sm md:block">
+          <div data-tour="materiais-lista" className="hidden overflow-x-auto rounded-xl border border-violeta/10 bg-white shadow-sm md:block">
             <table className="w-full text-left text-sm">
               <thead className="bg-nevoa text-xs uppercase tracking-wide text-tinta/60">
                 <tr>
@@ -190,7 +190,7 @@ export function MaterialsView({
             </table>
           </div>
 
-          <ul className="space-y-3 md:hidden">
+          <ul data-tour="materiais-lista" className="space-y-3 md:hidden">
             {materials.map((m) => (
               <li key={m.id}>
                 <Card className={cn("p-4", !m.is_active && "opacity-60")}>

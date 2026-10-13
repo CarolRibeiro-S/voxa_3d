@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { CostSettings } from "@/types/database";
 import { energyDistributorIdSchema, energyGroupSchema } from "@/lib/energy-schema";
 
 const INVALID = "Informe um número válido";
@@ -72,3 +73,20 @@ export const costSettingsSchema = z
   });
 
 export type CostSettingsValues = z.output<typeof costSettingsSchema>;
+
+// Margem e taxa de falha só aceitam inteiros: se o banco tiver decimais nesses dois, arredonda.
+// Os outros percentuais mantêm 2 casas.
+export function costSettingsToValues(s: CostSettings): CostSettingsValues {
+  return {
+    energy_kwh_brl: s.energy_kwh_brl,
+    energy_distributor_id: s.energy_distributor_id,
+    energy_tariff_group: s.energy_tariff_group,
+    labor_hour_brl: s.labor_hour_brl,
+    packaging_default_brl: s.packaging_default_brl,
+    failure_rate_pct: Math.round(s.failure_rate_pct),
+    default_margin_pct: Math.round(s.default_margin_pct),
+    marketplace_fee_pct: s.marketplace_fee_pct,
+    payment_fee_pct: s.payment_fee_pct,
+    tax_pct: s.tax_pct,
+  };
+}

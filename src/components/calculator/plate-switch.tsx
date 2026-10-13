@@ -15,7 +15,7 @@ export function PlateSwitch({ multi, onMultiChange }: PlateSwitchProps) {
   const { control, setValue } = useFormContext<{ piecesPerPlate: number }>();
 
   return (
-    <div className="space-y-3 rounded-xl border border-violeta/10 bg-nevoa/60 p-3">
+    <div data-tour="calc-mesa" className="space-y-3 rounded-xl border border-violeta/10 bg-nevoa/60 p-3">
       <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm font-medium">
         <input
           type="checkbox"

@@ -15,7 +15,9 @@ import { formatDateTime } from "@/lib/format";
 import { getCurrentTenant } from "@/lib/tenant";
 import { cn } from "@/lib/utils";
 import type { AuditAction } from "@/types/database";
+import { AutoTour } from "@/components/tour/tour-provider";
 import { RestoreButton, UndoButton } from "./history-buttons";
+import { guardPage } from "@/lib/permissions-server";
 
 export const metadata = { title: "Histórico | Voxa3D" };
 
@@ -95,6 +97,7 @@ async function Activities({
             return (
               <li
                 key={entry.id}
+                data-tour="historico-linha"
                 className={cn(
                   "rounded-xl border border-violeta/10 bg-white p-4 shadow-sm md:rounded-none md:border-0 md:shadow-none",
                   entry.reverted && "opacity-70",
@@ -109,7 +112,9 @@ async function Activities({
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold">{entry.phrase}</p>
-                    <p className="text-xs text-tinta/60">{formatDateTime(entry.at)}</p>
+                    <p className="text-xs text-tinta/60">
+                      {formatDateTime(entry.at)} | por {entry.actor}
+                    </p>
                     {entry.fields.length > 0 && (
                       <ul className="mt-2 space-y-0.5 text-sm text-tinta/80">
                         {entry.fields.map((f) => (
@@ -197,6 +202,7 @@ export default async function HistoricoPage({
 }) {
   const current = await getCurrentTenant();
   if (!current) return null; // O layout já mostra o erro de conta.
+  guardPage(current.role, "view_history");
 
   const params = await searchParams;
   const tab = params.aba === "lixeira" ? "lixeira" : "atividades";
@@ -218,7 +224,7 @@ export default async function HistoricoPage({
         </p>
       </div>
 
-      <nav aria-label="Seções do histórico" className="flex gap-2">
+      <nav aria-label="Seções do histórico" data-tour="historico-abas" className="flex gap-2">
         {tabs.map((t) => (
           <Link
             key={t.slug}
@@ -239,6 +245,7 @@ export default async function HistoricoPage({
       ) : (
         <Trash />
       )}
+      <AutoTour id="historico" />
     </div>
   );
 }

@@ -13,8 +13,10 @@ import {
 } from "@/lib/quotes-schema";
 import { getCurrentTenant } from "@/lib/tenant";
 import type { Quote, QuoteStatus } from "@/types/database";
+import { AutoTour } from "@/components/tour/tour-provider";
 import { NewQuoteButton } from "./new-quote-button";
 import { QuoteStatusBadge } from "./quote-status";
+import { guardPage } from "@/lib/permissions-server";
 
 export const metadata = { title: "Orçamentos | Voxa3D" };
 
@@ -40,7 +42,7 @@ function QuoteCard({ quote }: { quote: Quote }) {
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="text-xs text-tinta/60">Nº {formatQuoteNumber(quote.number)}</p>
-            <p className="truncate font-bold">{quote.customer_name}</p>
+            <p className="break-words font-bold">{quote.customer_name}</p>
           </div>
           <QuoteStatusBadge status={quote.status} />
         </div>
@@ -60,6 +62,7 @@ export default async function OrcamentosPage({
 }) {
   const current = await getCurrentTenant();
   if (!current) return null; // O layout já mostra o erro de conta.
+  guardPage(current.role, "view_quotes");
 
   if (!hasFeature(current.tenant.plan, "quotes")) {
     return (
@@ -83,7 +86,7 @@ export default async function OrcamentosPage({
     <div className="mx-auto max-w-5xl space-y-6">
       <Header action />
 
-      <form method="get" className="flex flex-wrap items-end gap-3" role="search">
+      <form method="get" data-tour="orcamentos-filtros" className="flex flex-wrap items-end gap-3" role="search">
         <div className="min-w-48 flex-1">
           <Label htmlFor="q">Buscar cliente</Label>
           <Input id="q" name="q" defaultValue={search} placeholder="Nome do cliente" maxLength={120} />
@@ -132,7 +135,7 @@ export default async function OrcamentosPage({
         </Card>
       ) : (
         <>
-          <ul className="grid gap-3 md:hidden">
+          <ul data-tour="orcamentos-lista" className="grid gap-3 md:hidden">
             {quotes.map((q) => (
               <li key={q.id}>
                 <QuoteCard quote={q} />
@@ -140,7 +143,7 @@ export default async function OrcamentosPage({
             ))}
           </ul>
 
-          <Card className="hidden overflow-hidden p-0 md:block">
+          <Card data-tour="orcamentos-lista" className="hidden overflow-hidden p-0 md:block">
             <table className="w-full text-sm">
               <caption className="sr-only">Lista de orçamentos</caption>
               <thead className="bg-nevoa text-left text-xs uppercase tracking-wide text-tinta/60">
@@ -176,6 +179,7 @@ export default async function OrcamentosPage({
           </Card>
         </>
       )}
+      <AutoTour id="orcamentos" />
     </div>
   );
 }

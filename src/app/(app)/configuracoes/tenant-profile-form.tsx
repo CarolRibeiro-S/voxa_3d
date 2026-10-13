@@ -49,7 +49,7 @@ export function TenantProfileForm({ initial }: { initial: TenantProfileInput }) 
   });
 
   return (
-    <Card>
+    <Card data-tour="config-dados">
       <h2 className="text-lg font-extrabold">Dados do orçamento</h2>
       <p className="mt-1 text-sm text-tinta/70">
         Estas informações aparecem no topo dos seus orçamentos em PDF.

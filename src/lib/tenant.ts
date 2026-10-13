@@ -1,7 +1,9 @@
+import { cookies } from "next/headers";
 import { cache } from "react";
 import { resolveAccess, type Access } from "@/lib/billing/access";
 import { createClient } from "@/lib/supabase/server";
-import type { CostSettings, MemberRole, Tenant, TenantProfile } from "@/types/database";
+import { capabilitiesOf, normalizeRole, type Capability, type Role } from "@/lib/permissions";
+import type { CostSettings, Tenant, TenantProfile } from "@/types/database";
 
 // Sempre com o cliente do usuário (RLS). A service role key só é usada por src/lib/billing,
 // para criar a assinatura de teste.
@@ -14,24 +16,53 @@ export const getCurrentUser = cache(async () => {
   return user;
 });
 
+// Cookie da loja ativa (httpOnly). Ele só diz QUAL loja a pessoa quer ver: a cada requisição o
+// servidor confere que ela é membro dessa loja.
+export const ACTIVE_TENANT_COOKIE = "voxa_tenant";
+
+export interface Membership {
+  tenantId: string;
+  role: Role;
+}
+
+// Lojas das quais a pessoa participa, da mais antiga para a mais nova.
+async function loadMemberships(userId: string): Promise<Membership[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("tenant_members")
+    .select("tenant_id, role, created_at")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: true });
+  return (data ?? []).map((m) => ({ tenantId: String(m.tenant_id), role: normalizeRole(m.role) }));
+}
+
+// Como a loja ativa é escolhida: (1) a do cookie, se a pessoa for membro dela; (2) a loja onde
+// ela é Dono; (3) a primeira. Antes, a consulta pegava "a primeira linha qualquer" de
+// tenant_members, sem ordem, o que não servia para quem participa de mais de uma loja.
 export const getCurrentTenant = cache(
-  async (): Promise<{ tenant: Tenant; role: MemberRole; access: Access } | null> => {
+  async (): Promise<{
+    tenant: Tenant;
+    role: Role;
+    capabilities: Capability[];
+    access: Access;
+  } | null> => {
     const user = await getCurrentUser();
     if (!user) return null;
 
-    const supabase = await createClient();
-    const { data: member } = await supabase
-      .from("tenant_members")
-      .select("role, tenant_id")
-      .eq("user_id", user.id)
-      .limit(1)
-      .maybeSingle();
-    if (!member) return null;
+    const memberships = await loadMemberships(user.id);
+    if (memberships.length === 0) return null;
 
+    const wanted = (await cookies()).get(ACTIVE_TENANT_COOKIE)?.value;
+    const chosen =
+      memberships.find((m) => m.tenantId === wanted) ??
+      memberships.find((m) => m.role === "owner") ??
+      memberships[0];
+
+    const supabase = await createClient();
     const { data: tenant } = await supabase
       .from("tenants")
       .select("*")
-      .eq("id", member.tenant_id)
+      .eq("id", chosen.tenantId)
       .maybeSingle();
     if (!tenant) return null;
 
@@ -39,9 +70,35 @@ export const getCurrentTenant = cache(
     const access = await resolveAccess(supabase, tenant as Tenant);
     return {
       tenant: { ...(tenant as Tenant), plan: access.plan },
-      role: member.role as MemberRole,
+      role: chosen.role,
+      capabilities: capabilitiesOf(chosen.role),
       access,
     };
+  },
+);
+
+// Lojas da pessoa, com nome e função, para o seletor "Trocar de loja".
+export const getMemberStores = cache(
+  async (): Promise<{ tenantId: string; name: string; role: Role }[]> => {
+    const user = await getCurrentUser();
+    if (!user) return [];
+    const memberships = await loadMemberships(user.id);
+    if (memberships.length < 2) return [];
+
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("tenants")
+      .select("id, name")
+      .in(
+        "id",
+        memberships.map((m) => m.tenantId),
+      );
+    const names = new Map((data ?? []).map((t) => [String(t.id), String(t.name)]));
+    return memberships.map((m) => ({
+      tenantId: m.tenantId,
+      name: names.get(m.tenantId) ?? "Loja",
+      role: m.role,
+    }));
   },
 );
 

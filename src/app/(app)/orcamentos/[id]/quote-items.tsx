@@ -75,7 +75,7 @@ function EditItemForm({ item, onClose }: { item: ItemRow; onClose: () => void })
     fields: [
       { name: "description", label: "Descrição" },
       {
-        name: "unit_price_brl",
+        name: "unit_price_brl", numeric: true,
         label: "Valor unitário final",
         format: (v) => formatBRL(Number(v ?? 0)),
       },

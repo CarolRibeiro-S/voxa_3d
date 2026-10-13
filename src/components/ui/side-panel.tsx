@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { X } from "lucide-react";
+import { IconButton } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface SidePanelProps {
@@ -41,14 +42,9 @@ export function SidePanel({ open, onClose, title, children }: SidePanelProps) {
             <h2 id={titleId} className="text-lg font-extrabold">
               {title}
             </h2>
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex size-11 items-center justify-center rounded-xl hover:bg-nevoa"
-              aria-label="Fechar"
-            >
-              <X size={20} />
-            </button>
+            <IconButton label="Fechar" onClick={onClose}>
+              <X size={20} aria-hidden="true" />
+            </IconButton>
           </div>
           {children}
         </div>
@@ -65,7 +61,9 @@ export function PanelBody({ children, className }: { children: ReactNode; classN
 
 export function PanelFooter({ children }: { children: ReactNode }) {
   return (
-    <div className="flex gap-3 border-t border-violeta/10 p-4 md:px-6 [&>*]:flex-1">
+    // No celular os botões ficam empilhados em largura total, com a ação principal (a última) em
+    // cima. A partir de sm ficam lado a lado, dividindo o espaço.
+    <div className="flex flex-col-reverse gap-2 border-t border-violeta/10 p-4 sm:flex-row sm:gap-3 md:px-6 [&>*]:w-full sm:[&>*]:min-w-0 sm:[&>*]:flex-1">
       {children}
     </div>
   );

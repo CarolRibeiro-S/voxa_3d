@@ -1,5 +1,7 @@
 "use server";
 
+import { capabilityDenied } from "@/lib/permissions-server";
+import { writeBlockedMessage } from "@/lib/billing/guard";
 import { revalidatePath } from "next/cache";
 import { computeFdm } from "@/lib/calc/fdm";
 import { computeResin } from "@/lib/calc/resin";
@@ -52,6 +54,12 @@ async function guard(): Promise<Guard> {
   if (!hasFeature(current.tenant.plan, "quotes")) {
     return { ok: false, message: "Os orçamentos não estão disponíveis no seu plano." };
   }
+  // Permissão da função (Dono, Gerente ou Operador), conferida no servidor.
+  const denied = await capabilityDenied("manage_quotes");
+  if (denied) return { ok: false, message: denied };
+  // Teste vencido sem assinatura: modo leitura, nada é criado nem editado.
+  const blocked = await writeBlockedMessage();
+  if (blocked) return { ok: false, message: blocked };
   return { ok: true, tenantId: current.tenant.id };
 }
 
@@ -405,6 +413,8 @@ export async function addQuoteItemFromCalculation(
 ): Promise<{ ok: true; quoteId: string; number: number } | { ok: false; message: string }> {
   const g = await guard();
   if (!g.ok) return g;
+  const calcDenied = await capabilityDenied("use_calculators");
+  if (calcDenied) return { ok: false, message: calcDenied };
   const current = await getCurrentTenant();
   if (!current || !hasFeature(current.tenant.plan, "calculator")) {
     return { ok: false, message: "A calculadora não está disponível no seu plano." };

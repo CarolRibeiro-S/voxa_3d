@@ -1,5 +1,7 @@
 "use server";
 
+import { capabilityDenied } from "@/lib/permissions-server";
+import { writeBlockedMessage } from "@/lib/billing/guard";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { costSettingsSchema, type CostSettingsValues } from "@/lib/cost-settings";
@@ -35,6 +37,12 @@ export async function saveCostSettings(
   // O tenant vem da sessão, nunca do formulário.
   const current = await getCurrentTenant();
   if (!current) return { ok: false, message: "Não encontramos a sua conta." };
+  // Permissão da função (Dono, Gerente ou Operador), conferida no servidor.
+  const denied = await capabilityDenied("manage_settings");
+  if (denied) return { ok: false, message: denied };
+  // Teste vencido sem assinatura: modo leitura, nada é criado nem editado.
+  const blocked = await writeBlockedMessage();
+  if (blocked) return { ok: false, message: blocked };
 
   // A entrada do cliente nunca é confiável: valida de novo no servidor.
   const parsed = costSettingsSchema.safeParse(values);
@@ -57,6 +65,7 @@ export async function saveCostSettings(
   }
 
   revalidatePath("/configuracoes");
+  revalidatePath("/painel");
   return { ok: true, savedAt: Date.now() };
 }
 
@@ -83,6 +92,9 @@ export async function listEnergyDistributorsAction(): Promise<
   if (!user) return { ok: false, error: "Sua sessão expirou. Entre novamente." };
   const current = await getCurrentTenant();
   if (!current) return { ok: false, error: "Não encontramos a sua conta." };
+  // Permissão da função (Dono, Gerente ou Operador), conferida no servidor.
+  const denied = await capabilityDenied("manage_settings");
+  if (denied) return { ok: false, error: denied };
 
   try {
     return { ok: true, data: await listEnergyDistributors() };
@@ -98,6 +110,9 @@ export async function getEnergyTariffAction(
   if (!user) return { ok: false, error: "Sua sessão expirou. Entre novamente." };
   const current = await getCurrentTenant();
   if (!current) return { ok: false, error: "Não encontramos a sua conta." };
+  // Permissão da função (Dono, Gerente ou Operador), conferida no servidor.
+  const denied = await capabilityDenied("manage_settings");
+  if (denied) return { ok: false, error: denied };
 
   const parsed = energyTariffInputSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: ENERGY_ERROR };
@@ -124,6 +139,12 @@ export async function saveTenantProfile(
   // O tenant vem da sessão, nunca do formulário.
   const current = await getCurrentTenant();
   if (!current) return { ok: false, message: "Não encontramos a sua conta." };
+  // Permissão da função (Dono, Gerente ou Operador), conferida no servidor.
+  const denied = await capabilityDenied("manage_settings");
+  if (denied) return { ok: false, message: denied };
+  // Teste vencido sem assinatura: modo leitura, nada é criado nem editado.
+  const blocked = await writeBlockedMessage();
+  if (blocked) return { ok: false, message: blocked };
 
   const parsed = tenantProfileSchema.safeParse(values);
   if (!parsed.success) {
@@ -178,6 +199,9 @@ export async function simulatePriceAction(
   if (!user) return { ok: false, message: "Sua sessão expirou. Entre novamente." };
   const current = await getCurrentTenant();
   if (!current) return { ok: false, message: "Não encontramos a sua conta." };
+  // Permissão da função (Dono, Gerente ou Operador), conferida no servidor.
+  const denied = await capabilityDenied("view_settings");
+  if (denied) return { ok: false, message: denied };
 
   const parsed = simulationInputSchema.safeParse(input);
   const adjust = "Ajuste os percentuais para ver o preço";

@@ -10,7 +10,7 @@ export function UndoButton({ logId }: { logId: string }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button variant="secondary" size="sm" className="min-h-11" onClick={() => setOpen(true)}>
+      <Button data-tour="historico-desfazer" variant="secondary" size="sm" className="min-h-11" onClick={() => setOpen(true)}>
         <Undo2 size={16} aria-hidden="true" />
         Desfazer
       </Button>
@@ -38,7 +38,7 @@ export function RestoreButton({
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button variant="secondary" size="sm" className="min-h-11" onClick={() => setOpen(true)}>
+      <Button data-tour="historico-restaurar" variant="secondary" size="sm" className="min-h-11" onClick={() => setOpen(true)}>
         <RotateCcw size={16} aria-hidden="true" />
         Restaurar
       </Button>
