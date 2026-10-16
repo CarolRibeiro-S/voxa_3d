@@ -1,0 +1,486 @@
+# Schema do Voxa3D (gerado em 16/10/2026 apos a migration 028)
+# Regerar sempre que um SQL novo for aplicado.
+
+# Colunas das tabelas (public)
+
+audit_log: id uuid not null, tenant_id uuid not null, actor_id uuid, entity text not null, entity_id text, action text not null, summary text, changes jsonb, reverted_at timestamp with time zone, reverted_by uuid, created_at timestamp with time zone not null
+billing_events: id text not null, received_at timestamp with time zone not null
+cost_settings: tenant_id uuid not null, energy_kwh_brl numeric not null, labor_hour_brl numeric not null, failure_rate_pct numeric not null, default_margin_pct numeric not null, marketplace_fee_pct numeric not null, payment_fee_pct numeric not null, tax_pct numeric not null, packaging_default_brl numeric not null, created_at timestamp with time zone not null, updated_at timestamp with time zone not null, energy_distributor_id uuid, energy_tariff_group text
+coupons: id uuid not null, code text not null, kind text not null, referrer_name text, extra_discount_pct numeric not null, commission_pct numeric not null, commission_recurring boolean not null, active boolean not null, created_at timestamp with time zone not null
+energy_distributors: id uuid not null, aneel_code text not null, name text not null, state character not null, is_active boolean not null, created_at timestamp with time zone not null
+energy_tariffs: id uuid not null, distributor_id uuid not null, tariff_group text not null, te_brl_kwh numeric not null, tusd_brl_kwh numeric not null, icms_pct numeric not null, pis_cofins_pct numeric not null, ref_brl_kwh_with_taxes numeric, valid_from date not null, valid_to date, source text, created_at timestamp with time zone not null
+energy_tariffs_current: id uuid, distributor_id uuid, tariff_group text, te_brl_kwh numeric, tusd_brl_kwh numeric, icms_pct numeric, pis_cofins_pct numeric, ref_brl_kwh_with_taxes numeric, valid_from date, valid_to date, source text, created_at timestamp with time zone
+launch_config: id boolean not null, quota integer not null, price_months integer not null, reservation_minutes integer not null, active boolean not null
+launch_redemptions: id uuid not null, tenant_id uuid not null, status text not null, reserved_until timestamp with time zone, seq integer, created_at timestamp with time zone not null, confirmed_at timestamp with time zone
+materials: id uuid not null, tenant_id uuid not null, kind text not null, name text not null, brand text, material_type text, color text, price_brl numeric not null, package_size numeric not null, cost_per_unit numeric, stock_remaining numeric, is_active boolean not null, created_at timestamp with time zone not null, updated_at timestamp with time zone not null, deleted_at timestamp with time zone
+models: id uuid not null, tenant_id uuid not null, name text not null, source_url text, material_hint text, default_weight_g numeric, default_print_minutes integer, print_notes text, photo_path text, created_by uuid, created_at timestamp with time zone not null, updated_at timestamp with time zone not null, deleted_at timestamp with time zone
+order_items: id uuid not null, tenant_id uuid not null, order_id uuid not null, quote_item_id uuid, description text not null, quantity integer not null, unit_price numeric not null, line_total numeric not null, deleted_at timestamp with time zone, created_at timestamp with time zone not null, model_id uuid
+orders: id uuid not null, tenant_id uuid not null, number integer, kind text not null, status text not null, quote_id uuid, client_name text, client_phone text, due_date date, payment_status text not null, paid_at timestamp with time zone, tracking_code text, notes text, total numeric not null, status_changed_at timestamp with time zone not null, deleted_at timestamp with time zone, created_at timestamp with time zone not null, updated_at timestamp with time zone not null
+plan_periods: code text not null, months integer not null, discount_pct numeric not null, launch_discount_pct numeric not null, sort_order integer not null
+plans: code text not null, name text not null, monthly_price_cents integer not null, active boolean not null, max_users integer not null, max_models integer not null
+printer_catalog: id uuid not null, type text not null, brand text not null, model text not null, build_x_mm integer, build_y_mm integer, build_z_mm integer, avg_power_w integer, price_ref_brl numeric, lifespan_hours integer, enclosed boolean, hardened_nozzle boolean, multicolor boolean, screen_size_in numeric, notes text, is_active boolean not null, created_at timestamp with time zone not null, rated_power_w integer, price_ref_source text, price_ref_date date, avg_power_basis text
+quote_items: id uuid not null, tenant_id uuid not null, quote_id uuid not null, position integer not null, kind text not null, description text not null, quantity integer not null, suggested_unit_price_brl numeric, unit_price_brl numeric not null, calc_input jsonb, calc_result jsonb, created_at timestamp with time zone not null, deleted_at timestamp with time zone, model_id uuid
+quotes: id uuid not null, tenant_id uuid not null, number integer not null, customer_name text not null, customer_contact text, status text not null, valid_until date, notes text, total_brl numeric not null, approved_at timestamp with time zone, created_at timestamp with time zone not null, updated_at timestamp with time zone not null, deleted_at timestamp with time zone
+rpc_usage: user_id uuid not null, fn text not null, bucket timestamp with time zone not null, calls integer not null
+sales_channels: id uuid not null, tenant_id uuid not null, name text not null, commission_pct numeric not null, payment_pct numeric not null, tax_pct numeric not null, fixed_fee_brl numeric not null, is_active boolean not null, position integer not null, created_at timestamp with time zone not null, updated_at timestamp with time zone not null, deleted_at timestamp with time zone
+subscriptions: id uuid not null, tenant_id uuid not null, plan_code text not null, period_code text, status text not null, trial_ends_at timestamp with time zone, current_period_end timestamp with time zone, list_price_cents integer, charged_price_cents integer, discount_pct_applied numeric, launch_coupon_id uuid, referral_coupon_id uuid, promo_price_until timestamp with time zone, mp_preapproval_id text, created_at timestamp with time zone not null, updated_at timestamp with time zone not null
+tenant_invites: id uuid not null, tenant_id uuid not null, email text not null, role text not null, token_hash text not null, invited_by uuid, expires_at timestamp with time zone not null, accepted_at timestamp with time zone, accepted_by uuid, revoked_at timestamp with time zone, created_at timestamp with time zone not null
+tenant_members: tenant_id uuid not null, user_id uuid not null, role text not null, permissions jsonb not null, created_at timestamp with time zone not null
+tenant_printers: id uuid not null, tenant_id uuid not null, catalog_id uuid, nickname text, type text not null, brand text not null, model text not null, power_w numeric, price_brl numeric, lifespan_hours integer, maintenance_brl_per_hour numeric not null, notes text, is_active boolean not null, created_at timestamp with time zone not null, updated_at timestamp with time zone not null, deleted_at timestamp with time zone
+tenant_profile: tenant_id uuid not null, business_name text, whatsapp text, instagram text, updated_at timestamp with time zone not null
+tenants: id uuid not null, name text not null, plan text not null, subscription_status text not null, trial_ends_at timestamp with time zone not null, created_at timestamp with time zone not null, updated_at timestamp with time zone not null
+
+# Politicas RLS (public e storage)
+
+[
+  {
+    "schemaname": "public",
+    "tablename": "audit_log",
+    "policyname": "audit_log_select",
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "usando": "is_tenant_member(tenant_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "cost_settings",
+    "policyname": "cost_settings_all",
+    "cmd": "ALL",
+    "permissive": "PERMISSIVE",
+    "usando": "is_tenant_member(tenant_id)",
+    "with_check": "is_tenant_member(tenant_id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "cost_settings",
+    "policyname": "operator_no_insert",
+    "cmd": "INSERT",
+    "permissive": "RESTRICTIVE",
+    "usando": null,
+    "with_check": "(tenant_role(tenant_id) IS DISTINCT FROM 'operator'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "cost_settings",
+    "policyname": "operator_no_update",
+    "cmd": "UPDATE",
+    "permissive": "RESTRICTIVE",
+    "usando": "(tenant_role(tenant_id) IS DISTINCT FROM 'operator'::text)",
+    "with_check": "(tenant_role(tenant_id) IS DISTINCT FROM 'operator'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "energy_distributors",
+    "policyname": "energy_distributors_select",
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "usando": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "energy_tariffs",
+    "policyname": "energy_tariffs_select",
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "usando": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "materials",
+    "policyname": "materials_all",
+    "cmd": "ALL",
+    "permissive": "PERMISSIVE",
+    "usando": "is_tenant_member(tenant_id)",
+    "with_check": "is_tenant_member(tenant_id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "materials",
+    "policyname": "operator_no_insert",
+    "cmd": "INSERT",
+    "permissive": "RESTRICTIVE",
+    "usando": null,
+    "with_check": "(tenant_role(tenant_id) IS DISTINCT FROM 'operator'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "materials",
+    "policyname": "operator_no_update",
+    "cmd": "UPDATE",
+    "permissive": "RESTRICTIVE",
+    "usando": "(tenant_role(tenant_id) IS DISTINCT FROM 'operator'::text)",
+    "with_check": "(tenant_role(tenant_id) IS DISTINCT FROM 'operator'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "models",
+    "policyname": "models_insert",
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "usando": null,
+    "with_check": "is_tenant_member(tenant_id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "models",
+    "policyname": "models_select",
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "usando": "is_tenant_member(tenant_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "models",
+    "policyname": "models_update",
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "usando": "is_tenant_member(tenant_id)",
+    "with_check": "is_tenant_member(tenant_id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "models",
+    "policyname": "operator_no_insert",
+    "cmd": "INSERT",
+    "permissive": "RESTRICTIVE",
+    "usando": null,
+    "with_check": "(tenant_role(tenant_id) IS DISTINCT FROM 'operator'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "models",
+    "policyname": "operator_no_update",
+    "cmd": "UPDATE",
+    "permissive": "RESTRICTIVE",
+    "usando": "(tenant_role(tenant_id) IS DISTINCT FROM 'operator'::text)",
+    "with_check": "(tenant_role(tenant_id) IS DISTINCT FROM 'operator'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "order_items",
+    "policyname": "operator_no_insert",
+    "cmd": "INSERT",
+    "permissive": "RESTRICTIVE",
+    "usando": null,
+    "with_check": "(tenant_role(tenant_id) IS DISTINCT FROM 'operator'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "order_items",
+    "policyname": "operator_no_update",
+    "cmd": "UPDATE",
+    "permissive": "RESTRICTIVE",
+    "usando": "(tenant_role(tenant_id) IS DISTINCT FROM 'operator'::text)",
+    "with_check": "(tenant_role(tenant_id) IS DISTINCT FROM 'operator'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "order_items",
+    "policyname": "order_items_insert",
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "usando": null,
+    "with_check": "is_tenant_member(tenant_id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "order_items",
+    "policyname": "order_items_select",
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "usando": "is_tenant_member(tenant_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "order_items",
+    "policyname": "order_items_update",
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "usando": "is_tenant_member(tenant_id)",
+    "with_check": "is_tenant_member(tenant_id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "orders",
+    "policyname": "operator_no_insert",
+    "cmd": "INSERT",
+    "permissive": "RESTRICTIVE",
+    "usando": null,
+    "with_check": "(tenant_role(tenant_id) IS DISTINCT FROM 'operator'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "orders",
+    "policyname": "orders_insert",
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "usando": null,
+    "with_check": "is_tenant_member(tenant_id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "orders",
+    "policyname": "orders_select",
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "usando": "is_tenant_member(tenant_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "orders",
+    "policyname": "orders_update",
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "usando": "is_tenant_member(tenant_id)",
+    "with_check": "is_tenant_member(tenant_id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "plan_periods",
+    "policyname": "plan_periods_read",
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "usando": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "plans",
+    "policyname": "plans_read",
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "usando": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "printer_catalog",
+    "policyname": "printer_catalog_select",
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "usando": "is_active",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "quote_items",
+    "policyname": "operator_no_insert",
+    "cmd": "INSERT",
+    "permissive": "RESTRICTIVE",
+    "usando": null,
+    "with_check": "(tenant_role(tenant_id) IS DISTINCT FROM 'operator'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "quote_items",
+    "policyname": "operator_no_update",
+    "cmd": "UPDATE",
+    "permissive": "RESTRICTIVE",
+    "usando": "(tenant_role(tenant_id) IS DISTINCT FROM 'operator'::text)",
+    "with_check": "(tenant_role(tenant_id) IS DISTINCT FROM 'operator'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "quote_items",
+    "policyname": "quote_items_all",
+    "cmd": "ALL",
+    "permissive": "PERMISSIVE",
+    "usando": "is_tenant_member(tenant_id)",
+    "with_check": "is_tenant_member(tenant_id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "quotes",
+    "policyname": "operator_no_insert",
+    "cmd": "INSERT",
+    "permissive": "RESTRICTIVE",
+    "usando": null,
+    "with_check": "(tenant_role(tenant_id) IS DISTINCT FROM 'operator'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "quotes",
+    "policyname": "operator_no_update",
+    "cmd": "UPDATE",
+    "permissive": "RESTRICTIVE",
+    "usando": "(tenant_role(tenant_id) IS DISTINCT FROM 'operator'::text)",
+    "with_check": "(tenant_role(tenant_id) IS DISTINCT FROM 'operator'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "quotes",
+    "policyname": "quotes_all",
+    "cmd": "ALL",
+    "permissive": "PERMISSIVE",
+    "usando": "is_tenant_member(tenant_id)",
+    "with_check": "is_tenant_member(tenant_id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "sales_channels",
+    "policyname": "operator_no_insert",
+    "cmd": "INSERT",
+    "permissive": "RESTRICTIVE",
+    "usando": null,
+    "with_check": "(tenant_role(tenant_id) IS DISTINCT FROM 'operator'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "sales_channels",
+    "policyname": "operator_no_update",
+    "cmd": "UPDATE",
+    "permissive": "RESTRICTIVE",
+    "usando": "(tenant_role(tenant_id) IS DISTINCT FROM 'operator'::text)",
+    "with_check": "(tenant_role(tenant_id) IS DISTINCT FROM 'operator'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "sales_channels",
+    "policyname": "sales_channels_all",
+    "cmd": "ALL",
+    "permissive": "PERMISSIVE",
+    "usando": "is_tenant_member(tenant_id)",
+    "with_check": "is_tenant_member(tenant_id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "subscriptions",
+    "policyname": "subscriptions_read",
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "usando": "is_tenant_member(tenant_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "tenant_invites",
+    "policyname": "tenant_invites_owner_read",
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "usando": "(tenant_role(tenant_id) = 'owner'::text)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "tenant_members",
+    "policyname": "tenant_members_read_team",
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "usando": "is_tenant_member(tenant_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "tenant_members",
+    "policyname": "tenant_members_select",
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "usando": "((user_id = ( SELECT auth.uid() AS uid)) OR is_tenant_member(tenant_id))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "tenant_printers",
+    "policyname": "operator_no_insert",
+    "cmd": "INSERT",
+    "permissive": "RESTRICTIVE",
+    "usando": null,
+    "with_check": "(tenant_role(tenant_id) IS DISTINCT FROM 'operator'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "tenant_printers",
+    "policyname": "operator_no_update",
+    "cmd": "UPDATE",
+    "permissive": "RESTRICTIVE",
+    "usando": "(tenant_role(tenant_id) IS DISTINCT FROM 'operator'::text)",
+    "with_check": "(tenant_role(tenant_id) IS DISTINCT FROM 'operator'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "tenant_printers",
+    "policyname": "tenant_printers_all",
+    "cmd": "ALL",
+    "permissive": "PERMISSIVE",
+    "usando": "is_tenant_member(tenant_id)",
+    "with_check": "is_tenant_member(tenant_id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "tenant_profile",
+    "policyname": "operator_no_insert",
+    "cmd": "INSERT",
+    "permissive": "RESTRICTIVE",
+    "usando": null,
+    "with_check": "(tenant_role(tenant_id) IS DISTINCT FROM 'operator'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "tenant_profile",
+    "policyname": "operator_no_update",
+    "cmd": "UPDATE",
+    "permissive": "RESTRICTIVE",
+    "usando": "(tenant_role(tenant_id) IS DISTINCT FROM 'operator'::text)",
+    "with_check": "(tenant_role(tenant_id) IS DISTINCT FROM 'operator'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "tenant_profile",
+    "policyname": "tenant_profile_all",
+    "cmd": "ALL",
+    "permissive": "PERMISSIVE",
+    "usando": "is_tenant_member(tenant_id)",
+    "with_check": "is_tenant_member(tenant_id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "tenants",
+    "policyname": "tenants_select",
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "usando": "is_tenant_member(id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "storage",
+    "tablename": "objects",
+    "policyname": "model_photos_delete",
+    "cmd": "DELETE",
+    "permissive": "PERMISSIVE",
+    "usando": "((bucket_id = 'model-photos'::text) AND (EXISTS ( SELECT 1\n   FROM tenant_members tm\n  WHERE ((tm.user_id = auth.uid()) AND (tm.role = ANY (ARRAY['owner'::text, 'manager'::text])) AND ((tm.tenant_id)::text = (storage.foldername(objects.name))[1])))))",
+    "with_check": null
+  },
+  {
+    "schemaname": "storage",
+    "tablename": "objects",
+    "policyname": "model_photos_insert",
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "usando": null,
+    "with_check": "((bucket_id = 'model-photos'::text) AND (EXISTS ( SELECT 1\n   FROM tenant_members tm\n  WHERE ((tm.user_id = auth.uid()) AND (tm.role = ANY (ARRAY['owner'::text, 'manager'::text])) AND ((tm.tenant_id)::text = (storage.foldername(objects.name))[1])))))"
+  },
+  {
+    "schemaname": "storage",
+    "tablename": "objects",
+    "policyname": "model_photos_read",
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "usando": "((bucket_id = 'model-photos'::text) AND (EXISTS ( SELECT 1\n   FROM tenant_members tm\n  WHERE ((tm.user_id = auth.uid()) AND ((tm.tenant_id)::text = (storage.foldername(objects.name))[1])))))",
+    "with_check": null
+  },
+  {
+    "schemaname": "storage",
+    "tablename": "objects",
+    "policyname": "model_photos_update",
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "usando": "((bucket_id = 'model-photos'::text) AND (EXISTS ( SELECT 1\n   FROM tenant_members tm\n  WHERE ((tm.user_id = auth.uid()) AND (tm.role = ANY (ARRAY['owner'::text, 'manager'::text])) AND ((tm.tenant_id)::text = (storage.foldername(objects.name))[1])))))",
+    "with_check": null
+  }
+]
