@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Plus, Trash2 } from "lucide-react";
+import { ModelPicker } from "@/components/models/model-picker";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -12,6 +13,7 @@ import { MoneyInput } from "@/components/ui/money-input";
 import { PanelBody, PanelFooter, SidePanel } from "@/components/ui/side-panel";
 import { Textarea } from "@/components/ui/textarea";
 import { formatPhone, normalizePhoneDigits } from "@/lib/format";
+import type { ModelOption } from "@/lib/models-schema";
 import {
   createOrderSchema,
   MAX_ORDER_ITEMS,
@@ -26,6 +28,8 @@ import { createOrder } from "./actions";
 function NewOrderForm({ onClose }: { onClose: () => void }) {
   const [pending, startTransition] = useTransition();
   const [serverError, setServerError] = useState<string | null>(null);
+  // Modelo escolhido em cada item (para mostrar nome e miniatura), por id do campo.
+  const [picked, setPicked] = useState<Record<string, ModelOption | null>>({});
 
   const form = useForm<CreateOrderInput, unknown, CreateOrderValues>({
     resolver: zodResolver(createOrderSchema),
@@ -35,7 +39,7 @@ function NewOrderForm({ onClose }: { onClose: () => void }) {
       client_phone: "",
       due_date: "",
       notes: "",
-      items: [{ description: "", quantity: 1, unit_price: 0 }],
+      items: [{ description: "", quantity: 1, unit_price: 0, model_id: null }],
     },
   });
   const {
@@ -43,6 +47,7 @@ function NewOrderForm({ onClose }: { onClose: () => void }) {
     control,
     handleSubmit,
     setValue,
+    getValues,
     formState: { errors },
   } = form;
   const lines = useFieldArray({ control, name: "items" });
@@ -167,6 +172,20 @@ function NewOrderForm({ onClose }: { onClose: () => void }) {
                     />
                   )}
                 </FormField>
+                <ModelPicker
+                  id={`new-item-${index}-model`}
+                  value={picked[item.id] ?? null}
+                  onChange={(option) => {
+                    setPicked((current) => ({ ...current, [item.id]: option }));
+                    setValue(`items.${index}.model_id`, option?.id ?? null);
+                    // Descrição vazia: usa o nome do modelo.
+                    if (option && getValues(`items.${index}.description`).trim() === "") {
+                      setValue(`items.${index}.description`, option.name.slice(0, 120), {
+                        shouldValidate: true,
+                      });
+                    }
+                  }}
+                />
                 <div className="grid grid-cols-2 gap-3">
                   <Controller
                     control={control}
@@ -241,7 +260,7 @@ title={`Remover item ${index + 1}`}
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => lines.append({ description: "", quantity: 1, unit_price: 0 })}
+            onClick={() => lines.append({ description: "", quantity: 1, unit_price: 0, model_id: null })}
             disabled={lines.fields.length >= MAX_ORDER_ITEMS}
           >
             <Plus size={16} aria-hidden="true" />

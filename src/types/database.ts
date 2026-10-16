@@ -179,6 +179,8 @@ export interface QuoteItem {
   quantity: number;
   suggested_unit_price_brl: number | null;
   unit_price_brl: number;
+  // Modelo (desenho) do item, opcional.
+  model_id: string | null;
   deleted_at: string | null;
   created_at: string;
 }
@@ -188,6 +190,7 @@ export type QuoteItemInsert = Pick<
   "tenant_id" | "quote_id" | "position" | "kind" | "description" | "quantity" | "unit_price_brl"
 > & {
   suggested_unit_price_brl?: number | null;
+  model_id?: string | null;
   calc_input?: unknown;
   calc_result?: unknown;
 };
@@ -303,6 +306,8 @@ export interface OrderItem {
   order_id: string;
   // Item do orçamento de onde veio (nulo nos itens manuais).
   quote_item_id: string | null;
+  // Modelo (desenho) do item, opcional.
+  model_id: string | null;
   description: string;
   quantity: number;
   unit_price: number;
@@ -316,7 +321,7 @@ export interface OrderItem {
 export type OrderItemInsert = Pick<
   OrderItem,
   "tenant_id" | "order_id" | "description" | "quantity" | "unit_price" | "line_total" | "created_at"
-> & { quote_item_id?: string | null };
+> & { quote_item_id?: string | null; model_id?: string | null };
 
 // Convite para entrar em uma loja. Só o hash do token é guardado, nunca o token.
 export interface TenantInvite {
@@ -331,4 +336,22 @@ export interface TenantInvite {
   accepted_by: string | null;
   revoked_at: string | null;
   created_at: string;
+}
+
+// Modelo: o desenho que a loja imprime (migration 028). Sem delete direto: só soft delete.
+export interface Model {
+  id: string;
+  tenant_id: string;
+  name: string;
+  source_url: string | null;
+  material_hint: string | null;
+  default_weight_g: number | null;
+  default_print_minutes: number | null;
+  print_notes: string | null;
+  // Caminho no bucket privado model-photos: {tenant_id}/{model_id}/{uuid}.{ext}.
+  photo_path: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
 }

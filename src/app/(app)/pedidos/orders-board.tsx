@@ -7,7 +7,10 @@ import { Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ModelPhoto } from "@/components/models/model-photo";
+import { Badge } from "@/components/ui/badge";
 import { formatBRL, formatDate } from "@/lib/format";
+import type { OrderModelInfo } from "@/lib/models-schema";
 import { ORDER_STATUS_LABEL, orderStatusLabel, type DueFlag } from "@/lib/orders";
 import { cn } from "@/lib/utils";
 import type { OrderKind, OrderStatus, PaymentStatus } from "@/types/database";
@@ -33,7 +36,15 @@ export interface BoardOrder {
   trackingCode: string | null;
   notes: string | null;
   totalBrl: number;
-  items: { description: string; quantity: number; unitPrice: number; lineTotal: number }[];
+  items: {
+    id: string;
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    lineTotal: number;
+    // Modelo do item (sem dinheiro), inclusive para o Operador.
+    model: OrderModelInfo | null;
+  }[];
   // Pedido de cliente Pronto ou Enviado: o botão "Avisar cliente" aparece.
   canNotify: boolean;
   // Link do WhatsApp. Nulo quando não há telefone válido.
@@ -48,6 +59,31 @@ const plain = (value: string) =>
 
 const selectClass =
   "min-h-11 rounded-xl border border-violeta/20 bg-white px-4 text-sm text-tinta shadow-sm outline-none focus:border-violeta focus:ring-2 focus:ring-violeta/20";
+
+// Miniatura e nome do primeiro modelo do pedido, com "+N" quando há mais de um.
+function ModelLine({ order }: { order: BoardOrder }) {
+  const models = new Map<string, OrderModelInfo>();
+  for (const item of order.items) {
+    if (item.model && !models.has(item.model.id)) models.set(item.model.id, item.model);
+  }
+  const [first, ...rest] = [...models.values()];
+  if (!first) return null;
+
+  return (
+    <div className="mt-2 flex items-center gap-2">
+      <ModelPhoto url={first.photoUrl} name={first.name} className="size-10 rounded-lg" />
+      <p className="min-w-0 flex-1 break-words text-sm font-medium leading-tight">
+        {first.name}
+        {first.removed && (
+          <Badge variant="warning" className="ml-1.5 align-middle">
+            removido
+          </Badge>
+        )}
+      </p>
+      {rest.length > 0 && <Badge className="shrink-0">+{rest.length}</Badge>}
+    </div>
+  );
+}
 
 function OrderCard({
   order,
@@ -81,6 +117,7 @@ function OrderCard({
             <span className="shrink-0 font-extrabold text-violeta">{formatBRL(order.totalBrl)}</span>
           )}
         </div>
+        <ModelLine order={order} />
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
           {order.kind === "stock" && order.status === "ready" && (
             <OrderStatusBadge kind={order.kind} status={order.status} />
@@ -176,6 +213,8 @@ export function OrdersBoard({
   initialOnlyLate = false,
   initialKind = "all",
   initialColumn = "placed",
+  canSetModel = false,
+  canOpenModels = false,
 }: {
   orders: BoardOrder[];
   // Operador: sem valores, pagamento, aviso ao cliente nem ações além de mover entre as 3 primeiras etapas.
@@ -184,6 +223,9 @@ export function OrdersBoard({
   initialOnlyLate?: boolean;
   initialKind?: "all" | OrderKind;
   initialColumn?: OrderStatus;
+  // Dono e Gerente trocam o modelo dos itens e abrem a página Modelos.
+  canSetModel?: boolean;
+  canOpenModels?: boolean;
 }) {
   const [kindFilter, setKindFilter] = useState<"all" | OrderKind>(initialKind);
   const [onlyLate, setOnlyLate] = useState(initialOnlyLate);
@@ -361,6 +403,8 @@ export function OrdersBoard({
       <AutoTour id="pedidos" />
       <OrderPanel
         restricted={restricted}
+        canSetModel={canSetModel}
+        canOpenModels={canOpenModels}
         order={opened}
         onClose={() => setOpenId(null)}
         onMove={requestMove}

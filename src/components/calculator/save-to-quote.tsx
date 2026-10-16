@@ -11,12 +11,14 @@ import {
   type DraftQuoteOption,
 } from "@/app/(app)/orcamentos/actions";
 import { SELECT_CLASS } from "@/components/calculator/calc-fields";
+import { ModelPicker } from "@/components/models/model-picker";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { FormField } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/ui/money-input";
 import { PanelBody, PanelFooter, SidePanel } from "@/components/ui/side-panel";
 import type { FdmCalcInput } from "@/lib/fdm-calc-schema";
+import type { ModelOption } from "@/lib/models-schema";
 import { formatQuoteNumber, saveToQuoteFormSchema, type SaveToQuoteFormValues } from "@/lib/quotes-schema";
 import type { ResinCalcInput } from "@/lib/resin-calc-schema";
 import { cn } from "@/lib/utils";
@@ -43,12 +45,14 @@ function SaveForm({
   const [pending, startTransition] = useTransition();
   const [serverError, setServerError] = useState<string | null>(null);
   const [saved, setSaved] = useState<Saved | null>(null);
+  const [model, setModel] = useState<ModelOption | null>(null);
 
   const {
     register,
     control,
     handleSubmit,
     setValue,
+    getValues,
     formState: { errors },
   } = useForm<SaveToQuoteFormValues>({
     resolver: zodResolver(saveToQuoteFormSchema),
@@ -92,6 +96,7 @@ function SaveForm({
           : { type: "existing", quote_id: values.target },
         values.description,
         values.unit_price_brl,
+        model?.id ?? null,
       );
       if (result.ok) setSaved({ quoteId: result.quoteId, number: result.number });
       else setServerError(result.message);
@@ -192,6 +197,18 @@ function SaveForm({
                 />
               )}
             </FormField>
+
+            <ModelPicker
+              id="save-model"
+              value={model}
+              onChange={(option) => {
+                setModel(option);
+                // Descrição vazia: usa o nome do modelo.
+                if (option && getValues("description").trim() === "") {
+                  setValue("description", option.name.slice(0, 120), { shouldValidate: true });
+                }
+              }}
+            />
 
             <Controller
               control={control}

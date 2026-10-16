@@ -6,6 +6,8 @@ import { revalidatePath } from "next/cache";
 import { computeFdm } from "@/lib/calc/fdm";
 import { computeResin } from "@/lib/calc/resin";
 import { fdmCalcSchema, type FdmCalcInput } from "@/lib/fdm-calc-schema";
+import { unusableModelMessage } from "@/lib/models-data";
+import { modelIdField } from "@/lib/models-schema";
 import { hasFeature } from "@/lib/plans";
 import { checkCalcLimit } from "@/lib/pricing-core";
 import {
@@ -279,6 +281,7 @@ async function isDraftQuote(
 export async function addCustomItem(
   quoteId: string,
   values: CustomItemValues,
+  modelId: string | null = null,
 ): Promise<ActionResult> {
   const g = await guard();
   if (!g.ok) return g;
@@ -287,6 +290,13 @@ export async function addCustomItem(
   if (!parsed.success) {
     return { ok: false, message: parsed.error.issues[0]?.message ?? FIRST_ISSUE };
   }
+
+  // Modelo opcional: precisa ser desta loja e não estar na Lixeira.
+  const parsedModel = modelIdField.safeParse(modelId);
+  if (!parsedModel.success) return { ok: false, message: GENERIC_ERROR };
+  const itemModelId = parsedModel.data || null;
+  const modelError = await unusableModelMessage(g.tenantId, [itemModelId]);
+  if (modelError) return { ok: false, message: modelError };
 
   const supabase = await createClient();
   if (!(await isDraftQuote(supabase, g.tenantId, quoteId))) {
@@ -297,6 +307,7 @@ export async function addCustomItem(
     tenant_id: g.tenantId,
     quote_id: quoteId,
     position: await nextPosition(supabase, g.tenantId, quoteId),
+    model_id: itemModelId,
     kind: "custom",
     description: parsed.data.description,
     quantity: parsed.data.quantity,
@@ -410,6 +421,7 @@ export async function addQuoteItemFromCalculation(
   target: unknown,
   description: string,
   finalUnitPrice: number,
+  modelId: string | null = null,
 ): Promise<{ ok: true; quoteId: string; number: number } | { ok: false; message: string }> {
   const g = await guard();
   if (!g.ok) return g;
@@ -433,6 +445,13 @@ export async function addQuoteItemFromCalculation(
   if (!parsedTarget.success || !parsedDescription.success || !parsedPrice.success || !parsedInput.success) {
     return { ok: false, message: FIRST_ISSUE };
   }
+
+  // Modelo opcional: precisa ser desta loja e não estar na Lixeira. Não altera o cálculo.
+  const parsedModel = modelIdField.safeParse(modelId);
+  if (!parsedModel.success) return { ok: false, message: GENERIC_ERROR };
+  const itemModelId = parsedModel.data || null;
+  const modelError = await unusableModelMessage(g.tenantId, [itemModelId]);
+  if (modelError) return { ok: false, message: modelError };
 
   const supabase = await createClient();
 
@@ -490,6 +509,7 @@ export async function addQuoteItemFromCalculation(
     quantity: result.quantity,
     suggested_unit_price_brl: result.perUnit.price,
     unit_price_brl: parsedPrice.data,
+    model_id: itemModelId,
     calc_input: parsedInput.data,
     calc_result: result,
   };

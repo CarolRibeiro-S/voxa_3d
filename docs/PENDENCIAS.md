@@ -25,6 +25,12 @@ Lista de tudo o que ainda falta. Marque as caixas conforme for concluindo.
 
 - [x] Vários usuários no plano Loja (convite, funções Dono, Gerente e Operador, limite por plano, histórico mostrando quem alterou, permissões do Desfazer).
 - [ ] Histórico de ações de usuários: convites e remoções.
+- [x] Modelos com foto e observações de impressão, ligados a orçamentos e pedidos.
+- [ ] Limpar do Storage as fotos de modelos na lixeira depois do prazo de retenção.
+- [ ] Várias fotos por modelo.
+- [ ] Importar modelos em lote.
+- [ ] Estoque e lotes por modelo.
+- [ ] Lucro por modelo no financeiro.
 - [ ] Esconder valores do Operador também no banco, com visões separadas.
 - [ ] Editar os itens de um pedido existente.
 - [ ] Tutorial interativo de primeiro uso (feito: revisar o texto dos passos com usuários reais).

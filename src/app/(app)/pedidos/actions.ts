@@ -16,6 +16,8 @@ import {
   type EditOrderInput,
   type GenerateOrderOptions,
 } from "@/lib/orders";
+import { unusableModelMessage } from "@/lib/models-data";
+import { modelIdField } from "@/lib/models-schema";
 import { hasFeature } from "@/lib/plans";
 import { can, OPERATOR_MOVE_STATUSES, PERMISSION_DENIED_MESSAGE, type Capability, type Role } from "@/lib/permissions";
 import { uuidSchema } from "@/lib/quotes-schema";
@@ -113,6 +115,13 @@ export async function createOrder(
   const v = parsed.data;
   const isClient = v.kind === "client";
 
+  // Os modelos escolhidos precisam ser desta loja e não estar na Lixeira.
+  const modelError = await unusableModelMessage(
+    g.tenantId,
+    v.items.map((item) => item.model_id),
+  );
+  if (modelError) return { ok: false, message: modelError };
+
   const supabase = await createClient();
   const row: OrderInsert = {
     tenant_id: g.tenantId,
@@ -138,6 +147,7 @@ export async function createOrder(
     quantity: item.quantity,
     unit_price: item.unit_price,
     line_total: round2(item.unit_price * item.quantity),
+    model_id: item.model_id || null,
     // Mantém a ordem de digitação (ordenação é por created_at e depois por id).
     created_at: new Date(base + index).toISOString(),
   }));
@@ -201,7 +211,7 @@ export async function createOrderFromQuote(
   // Só valor e quantidade vêm dos itens. Nada de dados de cálculo.
   const { data: quoteItems, error: itemsReadError } = await supabase
     .from("quote_items")
-    .select("id, description, quantity, unit_price_brl, position")
+    .select("id, description, quantity, unit_price_brl, model_id, position")
     .eq("quote_id", quoteId)
     .eq("tenant_id", g.tenantId)
     .is("deleted_at", null)
@@ -258,6 +268,8 @@ export async function createOrderFromQuote(
       tenant_id: g.tenantId,
       order_id: orderId,
       quote_item_id: String(item.id),
+      // O modelo do item também vai para o pedido.
+      model_id: item.model_id ? String(item.model_id) : null,
       description: String(item.description),
       quantity,
       unit_price: unit,
@@ -418,6 +430,52 @@ export async function deleteOrder(id: string): Promise<OrderActionResult> {
   if (error || !data || data.length === 0) {
     return fail("excluir", error ?? {}, "Não foi possível excluir. Tente novamente.");
   }
+
+  revalidateOrders();
+  return { ok: true };
+}
+
+// ---- Modelo do item ----
+
+// Define, troca ou tira o modelo de um item. Altera só o model_id.
+export async function setOrderItemModel(
+  itemId: string,
+  modelId: string | null,
+): Promise<OrderActionResult> {
+  const g = await guard("manage_orders");
+  if (!g.ok) return g;
+  const parsedModel = modelIdField.safeParse(modelId);
+  if (!uuidSchema.safeParse(itemId).success || !parsedModel.success) {
+    return { ok: false, message: GENERIC_ERROR };
+  }
+  const newModelId = parsedModel.data || null;
+
+  const supabase = await createClient();
+  const { data: item } = await supabase
+    .from("order_items")
+    .select("id, order_id")
+    .eq("id", itemId)
+    .eq("tenant_id", g.tenantId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (!item) return { ok: false, message: GENERIC_ERROR };
+
+  const state = await loadState(supabase, g.tenantId, String(item.order_id));
+  if (!state) return { ok: false, message: GENERIC_ERROR };
+  if (isOrderLocked(state.status)) return { ok: false, message: LOCKED_ERROR };
+
+  // O modelo precisa ser desta loja e não estar na Lixeira.
+  const modelError = await unusableModelMessage(g.tenantId, [newModelId]);
+  if (modelError) return { ok: false, message: modelError };
+
+  const { data, error } = await supabase
+    .from("order_items")
+    .update({ model_id: newModelId })
+    .eq("id", itemId)
+    .eq("tenant_id", g.tenantId)
+    .is("deleted_at", null)
+    .select("id");
+  if (error || !data || data.length === 0) return fail("modelo do item", error ?? {});
 
   revalidateOrders();
   return { ok: true };

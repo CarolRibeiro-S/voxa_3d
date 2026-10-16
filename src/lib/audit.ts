@@ -22,6 +22,7 @@ import type { AuditAction, OrderKind, OrderStatus, PaymentStatus, QuoteStatus } 
 export type AuditEntity =
   | "tenant_printers"
   | "materials"
+  | "models"
   | "quotes"
   | "quote_items"
   | "cost_settings"
@@ -30,7 +31,7 @@ export type AuditEntity =
   | "orders"
   | "order_items";
 
-export type EntityGroup = "all" | "machines" | "materials" | "quotes" | "orders" | "settings";
+export type EntityGroup = "all" | "machines" | "materials" | "models" | "quotes" | "orders" | "settings";
 
 interface EntityInfo {
   label: string;
@@ -53,6 +54,10 @@ export const ENTITIES: Record<AuditEntity, EntityInfo> = {
   },
   materials: {
     label: "Material", article: "o", noun: "material", group: "materials",
+    softDelete: true, hasUpdatedAt: true, singleton: false, showSummary: true,
+  },
+  models: {
+    label: "Modelo", article: "o", noun: "modelo", group: "models",
     softDelete: true, hasUpdatedAt: true, singleton: false, showSummary: true,
   },
   quotes: {
@@ -90,6 +95,7 @@ export const ENTITY_GROUPS: Record<EntityGroup, { label: string; entities: Audit
   all: { label: "Todos", entities: Object.keys(ENTITIES) as AuditEntity[] },
   machines: { label: "Máquinas", entities: ["tenant_printers"] },
   materials: { label: "Materiais", entities: ["materials"] },
+  models: { label: "Modelos", entities: ["models"] },
   quotes: { label: "Orçamentos", entities: ["quotes", "quote_items"] },
   orders: { label: "Pedidos", entities: ["orders", "order_items"] },
   settings: {
@@ -137,6 +143,15 @@ export const ALLOWED_FIELDS: Record<AuditEntity, Record<string, FieldSpec>> = {
     package_size: { label: "Tamanho da embalagem", kind: "number" },
     stock_remaining: { label: "Estoque restante", kind: "number" },
     is_active: { label: "Situação", kind: "bool", trueLabel: "Ativo", falseLabel: "Arquivado" },
+  },
+  // A foto (photo_path) fica de fora de propósito.
+  models: {
+    name: { label: "Nome", kind: "text" },
+    source_url: { label: "Link de origem", kind: "text" },
+    material_hint: { label: "Material e cor", kind: "text" },
+    default_weight_g: { label: "Peso padrão", kind: "number", unit: "g" },
+    default_print_minutes: { label: "Tempo de impressão padrão", kind: "number", unit: "min" },
+    print_notes: { label: "Observações de impressão", kind: "text" },
   },
   quotes: {
     customer_name: { label: "Nome do cliente", kind: "text" },
@@ -466,7 +481,7 @@ export async function listTrash(): Promise<TrashEntry[]> {
   const tenantId = current.tenant.id;
   const supabase = await createClient();
 
-  const [printers, materials, quotes, items, channels, orders] = await Promise.all([
+  const [printers, materials, quotes, items, channels, orders, models] = await Promise.all([
     supabase
       .from("tenant_printers")
       .select("id, nickname, brand, model, deleted_at")
@@ -503,6 +518,12 @@ export async function listTrash(): Promise<TrashEntry[]> {
       .eq("tenant_id", tenantId)
       .not("deleted_at", "is", null)
       .limit(100),
+    supabase
+      .from("models")
+      .select("id, name, deleted_at")
+      .eq("tenant_id", tenantId)
+      .not("deleted_at", "is", null)
+      .limit(100),
   ]);
   if (
     printers.error ||
@@ -510,7 +531,8 @@ export async function listTrash(): Promise<TrashEntry[]> {
     quotes.error ||
     items.error ||
     channels.error ||
-    orders.error
+    orders.error ||
+    models.error
   ) {
     throw new Error("Não foi possível carregar a lixeira.");
   }
@@ -542,6 +564,13 @@ export async function listTrash(): Promise<TrashEntry[]> {
       id: String(r.id),
       typeLabel: ENTITIES.materials.label,
       name: joinText(r.name, r.brand),
+      deletedAt: String(r.deleted_at),
+    })),
+    ...(models.data ?? []).map((r) => ({
+      entity: "models" as const,
+      id: String(r.id),
+      typeLabel: ENTITIES.models.label,
+      name: String(r.name),
       deletedAt: String(r.deleted_at),
     })),
     ...(quotes.data ?? []).map((r) => ({
@@ -587,15 +616,21 @@ const GENERIC_ERROR = "Não foi possível concluir. Tente novamente.";
 const CHANGED_ERROR = "Este item mudou depois dessa alteração, por isso não dá para desfazer.";
 const LOCKED_ERROR = "Este orçamento está bloqueado para edição. Reabra para editar.";
 const DUPLICATE_ERROR = "Já existe um item com esse nome. Renomeie o ativo e tente de novo.";
+const MODEL_DUPLICATE_ERROR = "Já existe um modelo com esse nome. Renomeie o ativo e tente de novo.";
 const ORDER_LOCKED_ERROR = "Este pedido está bloqueado para edição. Reabra para editar.";
 const NOT_UNDOABLE_ERROR = "Esta ação não pode ser desfeita.";
 
 type Db = SupabaseClient;
 
-function failure(context: string, error: { code?: string; message?: string }): OpResult {
+function failure(
+  context: string,
+  error: { code?: string; message?: string },
+  entity?: AuditEntity,
+): OpResult {
   // Registra só o código e a mensagem do erro, sem dados do usuário.
   console.error(`Erro no histórico (${context}):`, error.code, error.message);
-  return { ok: false, message: error.code === "23505" ? DUPLICATE_ERROR : GENERIC_ERROR };
+  if (error.code !== "23505") return { ok: false, message: GENERIC_ERROR };
+  return { ok: false, message: entity === "models" ? MODEL_DUPLICATE_ERROR : DUPLICATE_ERROR };
 }
 
 export function isSoftDeleteEntity(value: string): value is AuditEntity {
@@ -646,7 +681,7 @@ export async function restoreEntity(
       console.error("Erro no histórico (restaurar pedido):", error.code, error.message);
       return { ok: false, message: "Já existe um pedido ativo para este orçamento." };
     }
-    return failure("restaurar", error);
+    return failure("restaurar", error, entity);
   }
   if (!data || data.length === 0) return { ok: false, message: GENERIC_ERROR };
   return { ok: true };
@@ -794,7 +829,7 @@ async function revertUpdate(
   if (!info.singleton) write = write.eq("id", entityId);
   if (info.softDelete) write = write.is("deleted_at", null);
   const { data, error } = await write.select("tenant_id");
-  if (error) return failure("desfazer alteração", error);
+  if (error) return failure("desfazer alteração", error, entity);
   if (!data || data.length === 0) return { ok: false, message: CHANGED_ERROR };
   return { ok: true };
 }

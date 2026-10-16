@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Box,
   Boxes,
   Calculator,
   CreditCard,
@@ -47,6 +48,7 @@ const NAV_ITEMS: NavItem[] = [
   },
   { href: "/maquinas", label: "Máquinas", icon: Printer, feature: "calculator", capability: "view_catalog" },
   { href: "/materiais", label: "Materiais", icon: Boxes, feature: "calculator", capability: "view_catalog" },
+  { href: "/modelos", label: "Modelos", icon: Box, capability: "view_models" },
   { href: "/historico", label: "Histórico", icon: History, capability: "view_history" },
   { href: "/configuracoes", label: "Configurações", icon: Settings, capability: "view_settings" },
 ];

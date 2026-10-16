@@ -9,7 +9,7 @@ const PROTECTED_PREFIXES = [
   "/materiais",
   "/configuracoes",
   "/assinatura",
-  "/usuarios",
+  "/usuarios", "/modelos",
   "/historico",
   "/calculadora-fdm",
   "/calculadora-resina",

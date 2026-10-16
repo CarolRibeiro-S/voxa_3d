@@ -1,5 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { buildNotifyUrl, canNotify, dueFlag, ORDER_STATUSES } from "@/lib/orders";
+import { getOrderModels } from "@/lib/models-data";
+import type { OrderModelInfo } from "@/lib/models-schema";
 import { getOrderItems, getOrders } from "@/lib/orders-data";
 import { can } from "@/lib/permissions";
 import { hasFeature } from "@/lib/plans";
@@ -57,6 +59,13 @@ export default async function PedidosPage({
     orders.map((o) => o.id),
     restricted,
   );
+  // Modelos dos itens (inclusive os removidos). O servidor só seleciona colunas sem dinheiro.
+  const models: Record<string, OrderModelInfo> = await getOrderModels(
+    items.flatMap((i) => (i.model_id ? [i.model_id] : [])),
+  ).catch((error: unknown) => {
+    console.error("Erro ao carregar modelos dos pedidos:", error instanceof Error ? error.message : "desconhecido");
+    return {};
+  });
   // Assinatura da mensagem do WhatsApp: o nome do negócio, quando existir.
   const businessName = profile?.business_name?.trim() || null;
   const today = todayInSaoPaulo();
@@ -77,6 +86,8 @@ export default async function PedidosPage({
     items: items
       .filter((i) => i.order_id === o.id)
       .map((i) => ({
+        id: i.id,
+        model: i.model_id ? (models[i.model_id] ?? null) : null,
         description: i.description,
         quantity: i.quantity,
         unitPrice: i.unit_price,
@@ -100,6 +111,8 @@ export default async function PedidosPage({
       <OrdersBoard
         orders={board}
         restricted={restricted}
+        canSetModel={can(current.role, "manage_orders")}
+        canOpenModels={can(current.role, "view_models")}
         initialOnlyLate={params.atrasados === "1"}
         initialKind={params.tipo === "client" || params.tipo === "stock" ? params.tipo : "all"}
         initialColumn={

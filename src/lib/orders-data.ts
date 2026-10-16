@@ -10,7 +10,7 @@ import type { Order, OrderItem, OrderKind, OrderStatus, PaymentStatus } from "@/
 //              client_name, client_phone, due_date, payment_status ('pending' ou 'paid'), paid_at,
 //              tracking_code, notes, total (numeric 12,2: NUNCA gravar, o gatilho recalcula a partir
 //              de order_items.line_total), status_changed_at, deleted_at, created_at, updated_at
-// order_items: id, tenant_id, order_id, quote_item_id (nullable), description, quantity (inteiro
+// order_items: id, tenant_id, order_id, quote_item_id (nullable), model_id (nullable, migration 028), description, quantity (inteiro
 //              maior que zero), unit_price (numeric 12,2), line_total (numeric 12,2, gravável),
 //              deleted_at, created_at. Não existe "position": ordene por created_at e depois por id.
 //
@@ -32,14 +32,14 @@ import type { Order, OrderItem, OrderKind, OrderStatus, PaymentStatus } from "@/
 const ORDER_COLUMNS =
   "id, tenant_id, number, kind, status, quote_id, client_name, client_phone, due_date, payment_status, paid_at, tracking_code, notes, total, status_changed_at, deleted_at, created_at, updated_at";
 const ITEM_COLUMNS =
-  "id, tenant_id, order_id, quote_item_id, description, quantity, unit_price, line_total, deleted_at, created_at";
+  "id, tenant_id, order_id, quote_item_id, model_id, description, quantity, unit_price, line_total, deleted_at, created_at";
 
 // Colunas permitidas ao Operador: sem total, pagamento, telefone, rastreio nem observações. O
 // servidor só seleciona estas colunas, não basta esconder na interface.
 const ORDER_COLUMNS_RESTRICTED =
   "id, tenant_id, number, kind, status, client_name, due_date, status_changed_at, deleted_at, created_at, updated_at";
 const ITEM_COLUMNS_RESTRICTED =
-  "id, tenant_id, order_id, quote_item_id, description, quantity, deleted_at, created_at";
+  "id, tenant_id, order_id, quote_item_id, model_id, description, quantity, deleted_at, created_at";
 
 const MAX_ORDERS = 500;
 
@@ -104,6 +104,7 @@ export async function getOrderItems(orderIds: string[], restricted = false): Pro
     tenant_id: String(row.tenant_id),
     order_id: String(row.order_id),
     quote_item_id: nullable(row.quote_item_id),
+    model_id: nullable(row.model_id),
     description: String(row.description),
     quantity: Number(row.quantity),
     unit_price: Number(row.unit_price ?? 0),

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Plus } from "lucide-react";
+import { ModelPicker } from "@/components/models/model-picker";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ConfirmSaveDialog } from "@/components/ui/confirm-save-dialog";
@@ -15,6 +16,7 @@ import { MoneyInput } from "@/components/ui/money-input";
 import { PanelBody, PanelFooter, SidePanel } from "@/components/ui/side-panel";
 import { useConfirmSubmit } from "@/hooks/use-confirm-submit";
 import { formatBRL } from "@/lib/format";
+import type { ModelOption } from "@/lib/models-schema";
 import {
   customItemSchema,
   isQuoteLocked,
@@ -33,6 +35,8 @@ export interface ItemRow {
   unit_price_brl: number;
   suggested_unit_price_brl: number | null;
   subtotal_brl: number;
+  // Nome do modelo do item, quando houver (só aparece para quem gerencia orçamentos).
+  model_name: string | null;
 }
 
 function PanelActions({
@@ -147,10 +151,13 @@ function EditItemForm({ item, onClose }: { item: ItemRow; onClose: () => void })
 function CustomItemForm({ quoteId, onClose }: { quoteId: string; onClose: () => void }) {
   const [pending, startTransition] = useTransition();
   const [serverError, setServerError] = useState<string | null>(null);
+  const [model, setModel] = useState<ModelOption | null>(null);
   const {
     register,
     control,
     handleSubmit,
+    setValue,
+    getValues,
     formState: { errors },
   } = useForm<CustomItemValues>({
     resolver: zodResolver(customItemSchema),
@@ -160,7 +167,7 @@ function CustomItemForm({ quoteId, onClose }: { quoteId: string; onClose: () => 
   function onSubmit(values: CustomItemValues) {
     setServerError(null);
     startTransition(async () => {
-      const result = await addCustomItem(quoteId, values);
+      const result = await addCustomItem(quoteId, values, model?.id ?? null);
       if (result.ok) onClose();
       else setServerError(result.message);
     });
@@ -185,6 +192,17 @@ function CustomItemForm({ quoteId, onClose }: { quoteId: string; onClose: () => 
             />
           )}
         </FormField>
+        <ModelPicker
+          id="custom-model"
+          value={model}
+          onChange={(option) => {
+            setModel(option);
+            // Descrição vazia: usa o nome do modelo.
+            if (option && getValues("description").trim() === "") {
+              setValue("description", option.name.slice(0, 120), { shouldValidate: true });
+            }
+          }}
+        />
         <Controller
           control={control}
           name="quantity"
@@ -260,6 +278,7 @@ function ItemRowView({
           <p className="text-sm text-tinta/70">
             {item.quantity} x {formatBRL(item.unit_price_brl)}
           </p>
+          {item.model_name && <p className="text-xs text-tinta/60">Modelo: {item.model_name}</p>}
           {differs && item.suggested_unit_price_brl !== null && (
             <p className="text-xs text-tinta/60">
               Sugerido pela calculadora: {formatBRL(item.suggested_unit_price_brl)}

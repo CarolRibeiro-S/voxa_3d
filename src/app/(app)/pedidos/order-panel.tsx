@@ -22,12 +22,15 @@ import {
 import type { OrderStatus } from "@/types/database";
 import type { BoardOrder } from "./orders-board";
 import { listOrderActivity, updateOrder } from "./actions";
+import { ItemModel } from "./item-model";
 import { NotifyButton } from "./notify-button";
 import { OrderNav, PaymentButton } from "./order-nav";
 import { DueBadge, OrderStatusBadge } from "./order-ui";
 
 interface OrderPanelProps {
   restricted: boolean;
+  canSetModel: boolean;
+  canOpenModels: boolean;
   order: BoardOrder | null;
   onClose: () => void;
   // As confirmações (mudar de etapa, pagamento e exclusão) abrem no quadro.
@@ -248,6 +251,8 @@ function History({ orderId }: { orderId: string }) {
 
 function Details({
   restricted,
+  canSetModel,
+  canOpenModels,
   order,
   onEdit,
   onMove,
@@ -256,6 +261,8 @@ function Details({
   onClose,
 }: {
   restricted: boolean;
+  canSetModel: boolean;
+  canOpenModels: boolean;
   order: BoardOrder;
   onEdit: (focusPhone: boolean) => void;
   onMove: (order: BoardOrder, to: OrderStatus) => void;
@@ -335,17 +342,26 @@ function Details({
             Itens
           </h3>
           <ul className="mt-2 divide-y divide-violeta/10 text-sm">
-            {order.items.map((item, index) => (
-              <li key={index} className="flex items-start justify-between gap-3 py-2">
-                <span>
-                  {item.description}
-                  <span className="block text-xs text-tinta/60">
-                    {restricted ? `Quantidade: ${item.quantity}` : `${item.quantity} x ${formatBRL(item.unitPrice)}`}
+            {order.items.map((item) => (
+              <li key={item.id} className="py-2">
+                <div className="flex items-start justify-between gap-3">
+                  <span>
+                    {item.description}
+                    <span className="block text-xs text-tinta/60">
+                      {restricted ? `Quantidade: ${item.quantity}` : `${item.quantity} x ${formatBRL(item.unitPrice)}`}
+                    </span>
                   </span>
-                </span>
-                {!restricted && (
-                  <span className="shrink-0 font-semibold">{formatBRL(item.lineTotal)}</span>
-                )}
+                  {!restricted && (
+                    <span className="shrink-0 font-semibold">{formatBRL(item.lineTotal)}</span>
+                  )}
+                </div>
+                <ItemModel
+                  itemId={item.id}
+                  description={item.description}
+                  model={item.model}
+                  canSet={canSetModel && !locked}
+                  canOpenModelsPage={canOpenModels}
+                />
               </li>
             ))}
           </ul>
@@ -381,7 +397,7 @@ function Details({
   );
 }
 
-export function OrderPanel({ restricted, order, onClose, onMove, onPay, onDelete }: OrderPanelProps) {
+export function OrderPanel({ restricted, canSetModel, canOpenModels, order, onClose, onMove, onPay, onDelete }: OrderPanelProps) {
   const [editing, setEditing] = useState<{ focusPhone: boolean } | null>(null);
 
   const close = () => {
@@ -401,6 +417,8 @@ export function OrderPanel({ restricted, order, onClose, onMove, onPay, onDelete
         ) : (
           <Details
             restricted={restricted}
+            canSetModel={canSetModel}
+            canOpenModels={canOpenModels}
             order={order}
             onEdit={(focusPhone) => setEditing({ focusPhone })}
             onMove={onMove}

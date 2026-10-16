@@ -6,7 +6,7 @@ import type { Quote, QuoteItem, QuoteItemKind, QuoteStatus } from "@/types/datab
 const QUOTE_COLUMNS =
   "id, tenant_id, number, customer_name, customer_contact, status, valid_until, notes, total_brl, approved_at, deleted_at, created_at, updated_at";
 const ITEM_COLUMNS =
-  "id, tenant_id, quote_id, position, kind, description, quantity, suggested_unit_price_brl, unit_price_brl, deleted_at, created_at";
+  "id, tenant_id, quote_id, position, kind, description, quantity, suggested_unit_price_brl, unit_price_brl, model_id, deleted_at, created_at";
 
 type QuoteRow = Record<keyof Quote, unknown>;
 type ItemRow = Record<keyof QuoteItem, unknown>;
@@ -43,6 +43,7 @@ function toItem(row: ItemRow): QuoteItem {
         ? null
         : Number(row.suggested_unit_price_brl),
     unit_price_brl: Number(row.unit_price_brl),
+    model_id: (row.model_id as string | null) ?? null,
     deleted_at: (row.deleted_at as string | null) ?? null,
     created_at: String(row.created_at),
   };

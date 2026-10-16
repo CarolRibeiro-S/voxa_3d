@@ -82,6 +82,17 @@ export const TOURS: Record<string, TourDef> = {
       { target: t("materiais-lista"), title: "Custo por unidade", text: "O custo por grama ou por ml é calculado com o preço e o tamanho da embalagem.", side: "top" },
     ],
   },
+  modelos: {
+    id: "modelos",
+    version: 1,
+    kind: "page",
+    capability: "view_models",
+    steps: [
+      { target: t("modelos-novo"), title: "Novo modelo", text: "Clique aqui para cadastrar um desenho que você imprime, com nome e material.", side: "bottom" },
+      { target: t("modelos-lista"), title: "Foto e observações", text: "Ao editar um modelo, anexe uma foto e escreva as observações de impressão.", side: "top" },
+      { target: t("modelos-vinculo"), title: "Ligue ao pedido", text: "Ao criar um pedido, escolha o modelo em cada item. Quem imprime vê a foto e as notas.", side: "bottom" },
+    ],
+  },
   "material-form": {
     id: "material-form",
     version: 1,
@@ -205,6 +216,7 @@ export function tourForPath(pathname: string): string | null {
     "/painel": "painel",
     "/maquinas": "maquinas",
     "/materiais": "materiais",
+    "/modelos": "modelos",
     "/configuracoes": "configuracoes",
     "/calculadora-fdm": "calculadora-fdm",
     "/calculadora-resina": "calculadora-resina",

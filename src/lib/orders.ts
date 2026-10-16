@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { brPhoneError, normalizePhoneDigits } from "@/lib/format";
+import { modelIdField } from "@/lib/models-schema";
 import type { OrderKind, OrderStatus, PaymentStatus } from "@/types/database";
 
 // Compartilhado entre cliente e servidor: sem imports de servidor e sem fórmula de preço.
@@ -179,6 +180,8 @@ export const orderItemSchema = z.object({
     .number({ error: INVALID })
     .min(0, "Não pode ser negativo")
     .max(999_999.99, "Valor muito alto"),
+  // Modelo (desenho) do item, opcional.
+  model_id: modelIdField,
 });
 export type OrderItemValues = z.output<typeof orderItemSchema>;
 

@@ -40,6 +40,10 @@ export const CAPABILITIES = [
   "manage_subscription",
   "view_users",
   "manage_users",
+  // Modelos (os desenhos que a loja imprime). O Operador não abre a página, mas vê os dados do
+  // modelo dentro dos pedidos.
+  "view_models",
+  "manage_models",
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];

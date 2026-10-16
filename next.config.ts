@@ -3,6 +3,10 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // Protege a lógica do produto: o código do navegador não expõe o código-fonte.
   productionBrowserSourceMaps: false,
+  experimental: {
+    // Foto do modelo: o navegador já reduz a imagem, e o servidor recusa mais de 2 MB.
+    serverActions: { bodySizeLimit: "2mb" },
+  },
   async redirects() {
     return [
       // A página Equipe passou a se chamar Usuários.

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { formatBRL, formatContact, formatDate } from "@/lib/format";
+import { getModelNames } from "@/lib/models-data";
 import { getOrderForQuote } from "@/lib/orders-data";
 import { hasFeature } from "@/lib/plans";
 import { getQuote, getQuoteItems } from "@/lib/quotes";
@@ -44,7 +45,16 @@ export default async function OrcamentoPage({ params }: { params: Promise<{ id: 
 
   const locked = isQuoteLocked(quote.status);
 
+  // Nome do modelo de cada item (só para a tela; o PDF e o cliente nunca mostram o modelo).
+  const modelNames = await getModelNames(items.flatMap((i) => (i.model_id ? [i.model_id] : []))).catch(
+    (error: unknown) => {
+      console.error("Erro ao carregar modelos do orçamento:", error instanceof Error ? error.message : "desconhecido");
+      return {} as Record<string, string>;
+    },
+  );
+
   const rows = items.map((item) => ({
+    model_name: item.model_id ? (modelNames[item.model_id] ?? null) : null,
     id: item.id,
     kind: item.kind,
     description: item.description,
