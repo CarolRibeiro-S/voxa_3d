@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { authCallbackUrl } from "@/lib/safe-redirect";
 import { createClient } from "@/lib/supabase/client";
 import { signupSchema, translateAuthError, type SignupValues } from "@/lib/auth";
 
@@ -30,7 +31,7 @@ export function SignupForm({ next = "/painel" }: { next?: string }) {
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+        emailRedirectTo: authCallbackUrl(next, window.location.origin),
       },
     });
     if (error) {

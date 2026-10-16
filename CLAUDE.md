@@ -125,6 +125,10 @@ Teste de 7 dias: assinatura criada com plan_code `pro`, status `trialing`, trial
 - Loja ativa: cookie httpOnly `voxa_tenant` (`src/lib/active-tenant.ts`). O servidor valida a participação a cada requisição em `getCurrentTenant()`: cookie válido, senão a loja onde a pessoa é Dono, senão a primeira. Seletor "Trocar de loja" só para quem tem mais de uma (`switchTenant`). Ao aceitar convite o cookie aponta para a loja do convite.
 - Histórico mostra "por [nome ou e-mail]" (Auth, cliente admin); autor inexistente vira "Usuário removido".
 
+## Retorno do login e do cadastro
+
+E-mails de autenticação (cadastro com `emailRedirectTo`) e o login com Google (`redirectTo`) voltam para a origem onde a pessoa está, com `/auth/callback?next=...`, montado por `authCallbackUrl` em `src/lib/safe-redirect.ts`. `NEXT_PUBLIC_SITE_URL` só é usado se não houver origem. O `next` (por exemplo `/convite/[token]`) é sempre revalidado por `safeNextPath`: só caminhos internos. Novo fluxo que envie e-mail de autenticação (recuperação de senha, reenvio) deve usar o mesmo helper.
+
 ## Acesso por status da assinatura
 
 Regras em `computeAccess` (`src/lib/billing/access.ts`, função pura). `GRACE_DAYS_PAST_DUE = 3`.

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
+import { authCallbackUrl } from "@/lib/safe-redirect";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -39,7 +40,7 @@ export function GoogleButton({ className, next = "/painel" }: { className?: stri
       const { error } = await createClient().auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+          redirectTo: authCallbackUrl(next, window.location.origin),
         },
       });
       // Em caso de sucesso o navegador é redirecionado para o Google.
